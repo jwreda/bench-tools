@@ -64,6 +64,11 @@ glass on hover. Selected segment: solid wisteria-600 with white text (wisteria-3
 Tools-page row link (slides 4px right, wisteria title and arrow on hover). Hover effects sit in
 `@media (hover: hover)` so they don't stick after a tap on iPhone.
 
+Step lists and the parallel run table show progress three ways: done rows are shaded
+(`--step-done-bg`) and struck through with a filled tick, the current step (the first one not done,
+across the whole page) gets a stronger tint (`--step-now-bg`) and a 3px wisteria bar
+(`--step-now-edge`) plus `aria-current="step"`, and later steps sit in `--text-2`.
+
 Every page has the same sticky top bar (95% paper, 4px blur, caramel hairline): wordmark,
 "All tools" on tool pages, theme toggle. Each page header is a `.page-head` with an eyebrow,
 the title and a lede, over the faint wisteria wash.

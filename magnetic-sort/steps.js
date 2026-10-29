@@ -44,12 +44,16 @@
   var css = document.createElement("style");
   css.textContent =
     "ol.steps{list-style:none;margin:0;padding:0}" +
-    "ol.steps li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-strong)}" +
+    "ol.steps li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin:0 -12px;padding:6px 12px;border-bottom:1px solid var(--border-strong);transition:background-color var(--dur-fast)}" +
     "ol.steps li:last-child{border-bottom:0}" +
+    // Where you are: done rows shaded, the current step tinted with a wisteria bar, later steps quieter.
+    "ol.steps li.done{background:var(--step-done-bg)}" +
+    "ol.steps li.now{background:var(--step-now-bg);box-shadow:inset 3px 0 0 var(--step-now-edge)}" +
+    "ol.steps li.now ~ li:not(.done) .step-title{font-weight:500;color:var(--text-2)}" +
     "ol.steps label.check{flex:1 1 auto;align-items:flex-start;padding:6px 0}" +
     "ol.steps label.check input{flex:0 0 auto;margin-top:2px}" +
     "ol.steps .step-title{display:block;font-weight:600}" +
-    "ol.steps li.done .step-title{text-decoration:line-through;color:var(--text-3)}" +
+    "ol.steps li.done .step-title{text-decoration:line-through;color:var(--text-2)}" +
     "ol.steps .step-note{display:block;color:var(--text-3);font-size:14px}" +
     "ol.steps .step-amount{flex:0 0 auto;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;padding-top:8px}" +
     "ol.steps .step-amount small{display:block;font-weight:400;color:var(--text-3);font-size:13px}" +
@@ -89,6 +93,17 @@
     }, 500);
   }
 
+  /** Mark the first unticked step on the page as the current one (one across all lists, in page order). */
+  S.markCurrent = function () {
+    var found = false;
+    Array.prototype.forEach.call(document.querySelectorAll("ol.steps > li"), function (li) {
+      var now = !found && !li.classList.contains("done");
+      if (now) found = true;
+      li.classList.toggle("now", now);
+      if (now) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+    });
+  };
+
   var bound = typeof WeakSet !== "undefined" ? new WeakSet() : null;
 
   /**
@@ -110,6 +125,7 @@
         "</li>";
     }).join("") + "</ol>";
     S.paintTimers();
+    S.markCurrent();
     if (bound && bound.has(el)) return;
     if (bound) bound.add(el);
     el.addEventListener("change", function (e) {
@@ -118,6 +134,7 @@
       checked[id] = e.target.checked;
       var li = e.target.closest("li");
       if (li) li.classList.toggle("done", e.target.checked);
+      S.markCurrent();
       if (onChange) onChange();
     });
     el.addEventListener("click", function (e) {

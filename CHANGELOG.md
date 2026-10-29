@@ -3,6 +3,13 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.5 — 2026-10-29
+
+- Step lists (Magnetic sort, CellTrace) show where you are at a glance: finished steps are shaded
+  with a filled tick, the current step is tinted wisteria with a bar down its left edge, and the
+  steps after it are quieter. The parallel OT-I + OT-II run table does the same. Screen readers
+  hear the current step as the current one.
+
 ## 1.3.4 — 2026-10-29
 
 Wisteria takes over the emphasis, matching joereda.phd's new signature colour. Links, selected

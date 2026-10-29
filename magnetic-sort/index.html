@@ -31,8 +31,16 @@
   table.run { width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
   table.run td { padding: 8px 4px; border-bottom: 1px solid var(--border-strong); vertical-align: top; }
   table.run td.t { width: 56px; text-align: right; color: var(--text-3); }
-  table.run tr.done td.what { text-decoration: line-through; color: var(--text-3); }
+  table.run tr.done td.what { text-decoration: line-through; color: var(--text-2); }
   table.run button.tick { min-height: 32px; padding: 2px 8px; font-size: 14px; }
+  /* Where you are: done rows shaded with a filled tick, the next step tinted with a wisteria bar,
+     later steps quieter. */
+  table.run tr.done td { background: var(--step-done-bg); }
+  table.run tr.done button.tick { background: var(--select-bg); color: var(--select-text); border-color: var(--select-bg); }
+  table.run tr.now td { background: var(--step-now-bg); }
+  table.run tr.now td:first-child { box-shadow: inset 3px 0 0 var(--step-now-edge); }
+  table.run tr.now td.what { font-weight: 600; }
+  table.run tr.now ~ tr:not(.done) td.what { color: var(--text-2); }
   .over { color: var(--error-ink); }
   .small { font-size: 14px; color: var(--text-3); }
 </style>
@@ -543,14 +551,15 @@
       var rowTime = function (a) { return live.doneAt[a.id] !== undefined ? live.doneAt[a.id] : live.due(a, now); };
       actions.sort(function (a, b) { return rowTime(a) - rowTime(b); });
     }
+    var current = live ? actions.filter(function (a) { return !live.isDone(a); })[0] : null;
     return '<table class="run">' + actions.map(function (a) {
-      var done = live ? live.isDone(a) : false;
+      var done = live ? live.isDone(a) : false, now = a === current;
       var time;
       if (!live) time = clock(a.at);
       else if (live.doneAt[a.id] !== undefined) time = clock(Math.max(live.doneAt[a.id] - live.start, 0));
       else { var d = clock(Math.max(live.due(a, now) - live.start, 0)); time = live.isTimed(a) ? d : "≈" + d; }
       var detail = amounts(a);
-      return '<tr class="' + (done ? "done" : "") + '"><td class="t">' + time + "</td><td>" + tag(a.sample) + '</td><td class="what">' +
+      return '<tr class="' + (done ? "done" : now ? "now" : "") + '"' + (now ? ' aria-current="step"' : "") + '><td class="t">' + time + "</td><td>" + tag(a.sample) + '</td><td class="what">' +
         esc(a.action.title) + (detail ? '<br><span class="small">' + esc(detail) + "</span>" : "") + "</td><td>" +
         (live ? '<button type="button" class="secondary tick" data-act="toggle" data-id="' + esc(a.id) + '" aria-label="' + (done ? "Undo done: " : "Mark done: ") + esc(a.action.title) + '">' + (done ? "✓" : "○") + "</button>" : "") +
         "</td></tr>";
