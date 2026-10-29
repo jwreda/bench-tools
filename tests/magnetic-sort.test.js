@@ -309,3 +309,20 @@ test("timer state", () => {
   S.resetTimer("t");
   assert.equal(S.timerState("t", 1000).state, "idle");
 });
+
+test("blocked plans say why, keep the volume they'd need, and offer the fix", () => {
+  const thin = E.blockedResuspension(E.resuspension(2e6, 20, "dilutePortion", 1));
+  assert.equal(thin.eyebrow, "Can't dilute");
+  assert.equal(thin.wouldNeed.value, "50.00 mL of cells");
+  assert.equal(thin.fix.mode, "concentrate");
+  const all = E.blockedResuspension(E.resuspension(2e6, 20, "diluteAll"));
+  assert.equal(all.wouldNeed.value, "400.0 µL");
+  const short = E.blockedResuspension(E.resuspension(2.5e8, 1, "dilutePortion", 3));
+  assert.equal(short.eyebrow, "Not enough cells");
+  assert.equal(short.wouldNeed.value, "1.200 mL of cells");
+  assert.equal(short.fix.portion, "2.5");
+  // Rounded down, never up: the suggestion is always makeable.
+  assert.equal(E.blockedResuspension(E.resuspension(1.23456e8, 1, "dilutePortion", 5)).fix.portion, "1.23");
+  assert.equal(E.blockedResuspension(E.resuspension(3e8, 0.5, "diluteAll")), null);
+  assert.equal(E.blockedResuspension(E.resuspension(5e8, 1, "concentrate")), null);
+});

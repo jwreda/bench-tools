@@ -167,7 +167,9 @@
       });
     }
 
-    out.warnings = sol.warnings.map(function (w) {
+    // "Can't dilute up" is the cause; a stock volume above the final volume is its symptom.
+    var upward = sol.warnings.some(function (w) { return w.kind === "cannotDiluteUp"; });
+    out.warnings = sol.warnings.filter(function (w) { return !(upward && w.kind === "negativeDiluent"); }).map(function (w) {
       switch (w.kind) {
         case "subMicroliterStock":
           return { level: "warn", text: "Stock volume is only " + F.number(w.liters * 1e6) + " µL — too small to pipette reliably. Try a more concentrated stock or an intermediate dilution." };
@@ -181,6 +183,15 @@
     });
     out.status = out.warnings.some(function (w) { return w.level === "error"; }) ? "error"
       : out.warnings.length ? "approx" : "exact";
+    // An impossible dilution: say why, and keep the number the inputs work out to.
+    out.blocked = out.status !== "error" ? null : {
+      eyebrow: "Can't make this",
+      title: upward
+        ? "Final C₂ is stronger than the stock C₁. Diluting can only lower a concentration."
+        : "The stock volume comes out larger than the final volume.",
+      wouldNeed: { label: "The numbers give", value: LABELS[s] + " " + out.hero.value + " " + out.hero.unit,
+        note: upward ? "Use a stronger stock, or aim for a lower C₂." : "Check the volumes you entered." }
+    };
     return out;
   }
 

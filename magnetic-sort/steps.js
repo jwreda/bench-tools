@@ -44,19 +44,19 @@
   var css = document.createElement("style");
   css.textContent =
     "ol.steps{list-style:none;margin:0;padding:0}" +
-    "ol.steps li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}" +
+    "ol.steps li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-strong)}" +
     "ol.steps li:last-child{border-bottom:0}" +
     "ol.steps label.check{flex:1 1 auto;align-items:flex-start;padding:6px 0}" +
     "ol.steps label.check input{flex:0 0 auto;margin-top:2px}" +
     "ol.steps .step-title{display:block;font-weight:600}" +
-    "ol.steps li.done .step-title{text-decoration:line-through;color:var(--muted)}" +
-    "ol.steps .step-note{display:block;color:var(--muted);font-size:14px}" +
-    "ol.steps .step-amount{flex:0 0 auto;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;padding-top:8px}" +
-    "ol.steps .step-amount small{display:block;font-weight:400;color:var(--muted);font-size:13px}" +
+    "ol.steps li.done .step-title{text-decoration:line-through;color:var(--text-3)}" +
+    "ol.steps .step-note{display:block;color:var(--text-3);font-size:14px}" +
+    "ol.steps .step-amount{flex:0 0 auto;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;padding-top:8px}" +
+    "ol.steps .step-amount small{display:block;font-weight:400;color:var(--text-3);font-size:13px}" +
     "ol.steps .step-timer{margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}" +
     "ol.steps .step-timer button{min-height:36px;padding:6px 12px;font-size:15px}" +
-    "ol.steps .step-clock{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}" +
-    "ol.steps .step-clock.over{color:var(--error-text)}";
+    "ol.steps .step-clock{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}" +
+    "ol.steps .step-clock.over{color:var(--error-ink)}";
   document.head.appendChild(css);
 
   function paintTimer(el) {
