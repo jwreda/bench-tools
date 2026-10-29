@@ -1,7 +1,8 @@
 /* BenchMate web — one stylesheet for every tool. Phone first; plain HTML elements.
    Look and feel follow the joereda.phd style guide (docs/style-guide.md): warm paper,
-   forest green for actions, caramel for labels, wisteria only for hover glass and the
-   page wash. Build with the role tokens (--bg, --surface, --text, ...), not raw shades. */
+   wisteria for emphasis (links, choices, focus, the answer, hover glass, the page wash),
+   forest green for primary buttons and the wordmark, caramel for labels.
+   Build with the role tokens (--bg, --surface, --text, ...), not raw shades. */
 
 /* ===================================================================== tokens */
 :root {
@@ -23,7 +24,7 @@
   --warm-300: #d4ccc2; --warm-400: #9c9287; --warm-500: #776e66;
   --warm-600: #5a524b; --warm-700: #3d3835; --warm-800: #2c2825;
   --warm-900: #1f1c1a;
-  /* Wisteria (signature, special moments only) */
+  /* Wisteria (signature accent: emphasis and interaction) */
   --wisteria-50: #f9f4fb;  --wisteria-100: #eee2f4; --wisteria-200: #e0c8e9;
   --wisteria-300: #cba3db; --wisteria-400: #b48bc7; --wisteria-500: #9666b0;
   --wisteria-600: #7a4f93; --wisteria-700: #613c76; --wisteria-800: #482b58;
@@ -44,16 +45,18 @@
   --text-3: var(--warm-500);
   --border: var(--caramel-100);
   --border-strong: var(--caramel-200);
-  --link: var(--green-600);
+  --link: var(--wisteria-600);
   --brand: var(--green-700);
   --btn-bg: var(--green-600);
   --btn-bg-hover: var(--green-700);
   --btn-text: #ffffff;
-  --btn-outline: var(--green-600);
+  --btn-outline: var(--wisteria-600);
+  --select-bg: var(--wisteria-600);   /* chosen segment, checked boxes */
+  --select-text: #ffffff;
   --label: var(--caramel-500);
   --badge-bg: var(--caramel-50);
   --nav-bg: rgb(254 253 251 / 0.95);
-  --focus: var(--green-500);
+  --focus: var(--wisteria-500);
   --tag-ink-mix: 0%;
   --tag-fill: 22%;
   --tag-edge: 70%;
@@ -62,9 +65,9 @@
   --field-bg: var(--warm-50);
   --field-border: var(--caramel-300);  /* form fields need a visible edge */
   --unit: var(--caramel-600);          /* units next to inputs: caramel, but readable */
-  --result-bg: #f1f4ec;                /* the answer: solid, faintly green (between green-50 and -100) */
-  --result-edge: var(--green-200);
-  --solved-bg: var(--green-100);
+  --result-bg: #f5eef8;                /* the answer: solid, faintly wisteria (between wisteria-50 and -100) */
+  --result-edge: var(--wisteria-200);
+  --solved-bg: var(--wisteria-100);
   --warn-ink: var(--porsche-deep);
   --warn-bg: color-mix(in srgb, var(--porsche) 18%, transparent);
   --error-ink: var(--wewak-deep);
@@ -104,13 +107,14 @@
     --bg: var(--warm-900);  --bg-subtle: var(--warm-800);  --surface: var(--warm-800);
     --text: var(--warm-100);  --text-2: var(--warm-300);  --text-3: var(--warm-400);
     --border: var(--warm-700);  --border-strong: var(--warm-700);
-    --link: var(--green-400);  --brand: var(--green-400);
-    --btn-outline: var(--green-400);
+    --link: var(--wisteria-300);  --brand: var(--green-400);
+    --btn-outline: var(--wisteria-300);
+    --select-bg: var(--wisteria-300);  --select-text: #1f1c1a;
     --label: var(--caramel-400);  --badge-bg: var(--warm-700);
-    --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--green-400);
+    --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--wisteria-400);
     --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
     --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
-    --result-bg: #252b1f;  --result-edge: var(--green-800);  --solved-bg: #2f3a26;
+    --result-bg: #29222d;  --result-edge: var(--wisteria-800);  --solved-bg: #362a3e;
     --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
     --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
     --glass-hover-bg: linear-gradient(135deg,
@@ -129,13 +133,14 @@
   --bg: var(--warm-900);  --bg-subtle: var(--warm-800);  --surface: var(--warm-800);
   --text: var(--warm-100);  --text-2: var(--warm-300);  --text-3: var(--warm-400);
   --border: var(--warm-700);  --border-strong: var(--warm-700);
-  --link: var(--green-400);  --brand: var(--green-400);
-  --btn-outline: var(--green-400);
+  --link: var(--wisteria-300);  --brand: var(--green-400);
+  --btn-outline: var(--wisteria-300);
+  --select-bg: var(--wisteria-300);  --select-text: #1f1c1a;
   --label: var(--caramel-400);  --badge-bg: var(--warm-700);
-  --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--green-400);
+  --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--wisteria-400);
   --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
   --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
-  --result-bg: #252b1f;  --result-edge: var(--green-800);  --solved-bg: #2f3a26;
+  --result-bg: #29222d;  --result-edge: var(--wisteria-800);  --solved-bg: #362a3e;
   --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
   --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
   --glass-hover-bg: linear-gradient(135deg,
@@ -277,13 +282,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--f
 input::placeholder { color: var(--text-3); }
 input.solved { background: var(--solved-bg); border-color: var(--result-edge); font-weight: 600; }
 input[readonly] { cursor: default; }
-input[type="radio"], input[type="checkbox"] { accent-color: var(--btn-bg); }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--select-bg); }
 
 /* Segmented choice built from radio buttons. */
 .segments { display: flex; padding: 3px; gap: 3px; background: var(--bg-subtle); border: 1px solid var(--border-strong); border-radius: var(--radius); margin: 0 0 16px; }
 .segments label { flex: 1; display: grid; place-items: center; text-align: center; padding: 8px 6px; min-height: 40px; cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text-2); border-radius: 6px; transition: background-color var(--dur-fast), color var(--dur-fast); }
 .segments input { position: absolute; opacity: 0; pointer-events: none; }
-.segments label:has(input:checked) { background: var(--btn-bg); color: var(--btn-text); box-shadow: var(--shadow-sm); }
+.segments label:has(input:checked) { background: var(--select-bg); color: var(--select-text); box-shadow: var(--shadow-sm); }
 .segments label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; font-size: 15px; color: var(--text-2); }
@@ -335,7 +340,7 @@ button[disabled], .button.disabled { opacity: .5; cursor: default; }
 .result .caption { font: 500 13px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--label); }
 .result .empty { color: var(--text-2); }
 
-/* A result that can't be used as is. Rose instead of green, so it never reads as an answer;
+/* A result that can't be used as is. Rose instead of wisteria, so it never reads as an answer;
    .blocked cards explain and offer a fix, .has-error cards keep their number but dim it. */
 .result.blocked, .result.has-error {
   background: color-mix(in srgb, var(--wewak) 10%, var(--surface));
