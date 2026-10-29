@@ -16,7 +16,7 @@
    * vX.Y.Z; the deploy keeps every tagged release live at /vX.Y.Z/ and flips FROZEN to true
    * in those copies so their pages say they're an archived version.
    */
-  BM.VERSION = "1.3.5";
+  BM.VERSION = "1.3.6";
   BM.FROZEN = false;
 
   // ---------------------------------------------------------------- units

@@ -69,6 +69,10 @@ Step lists and the parallel run table show progress three ways: done rows are sh
 across the whole page) gets a stronger tint (`--step-now-bg`) and a 3px wisteria bar
 (`--step-now-edge`) plus `aria-current="step"`, and later steps sit in `--text-2`.
 
+The hemocytometer is the one skeuomorph: a faintly wisteria chamber (`--chamber-bg`, fine
+`--chamber-ghost` ruling) with four corner squares in solid `--chamber-square`, each with a
+triple-line `--chamber-rule` border and a lighter 4 × 4 `--chamber-sub` ruling. Inputs stay solid.
+
 Every page has the same sticky top bar (95% paper, 4px blur, caramel hairline): wordmark,
 "All tools" on tool pages, theme toggle. Each page header is a `.page-head` with an eyebrow,
 the title and a lede, over the faint wisteria wash.
