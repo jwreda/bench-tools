@@ -3,6 +3,14 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.6 — 2026-10-29
+
+- The hemocytometer squares (Cell counting, and "Count on a hemocytometer" in Count samples) now
+  look like the slide: each corner square has the triple-line border and a finer 4 × 4 ruling,
+  set in a faintly tinted counting chamber whose fine grid shows between the corners as the middle
+  squares. Lines are clearly visible in light and dark, and the count fields sit on solid
+  backgrounds inside each corner.
+
 ## 1.3.5 — 2026-10-29
 
 - Step lists (Magnetic sort, CellTrace) show where you are at a glance: finished steps are shaded

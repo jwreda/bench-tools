@@ -72,6 +72,13 @@
   --step-done-bg: color-mix(in srgb, var(--wisteria-300) 14%, transparent);
   --step-now-bg: color-mix(in srgb, var(--wisteria-300) 30%, transparent);
   --step-now-edge: var(--wisteria-500);
+  /* Hemocytometer chamber: faint wisteria glass, ruled lines, solid squares. */
+  --chamber-bg: color-mix(in srgb, var(--wisteria-100) 55%, var(--surface));
+  --chamber-edge: var(--wisteria-200);
+  --chamber-ghost: color-mix(in srgb, var(--wisteria-400) 22%, transparent);
+  --chamber-rule: color-mix(in srgb, var(--wisteria-500) 55%, var(--surface));
+  --chamber-square: color-mix(in srgb, var(--wisteria-50) 60%, var(--surface));
+  --chamber-sub: color-mix(in srgb, var(--wisteria-400) 30%, var(--chamber-square));
   --warn-ink: var(--porsche-deep);
   --warn-bg: color-mix(in srgb, var(--porsche) 18%, transparent);
   --error-ink: var(--wewak-deep);
@@ -122,6 +129,13 @@
     --step-done-bg: color-mix(in srgb, var(--wisteria-300) 10%, transparent);
     --step-now-bg: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
     --step-now-edge: var(--wisteria-300);
+    --chamber-bg: color-mix(in srgb, var(--wisteria-900) 55%, var(--surface));
+    --chamber-edge: var(--wisteria-800);
+    --chamber-ghost: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
+    --chamber-rule: color-mix(in srgb, var(--wisteria-300) 50%, var(--surface));
+    --chamber-square: color-mix(in srgb, var(--wisteria-900) 25%, var(--surface));
+  --chamber-sub: color-mix(in srgb, var(--wisteria-300) 22%, var(--chamber-square));
+    --chamber-sub: color-mix(in srgb, var(--wisteria-300) 22%, var(--chamber-square));
     --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
     --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
     --glass-hover-bg: linear-gradient(135deg,
@@ -151,6 +165,12 @@
   --step-done-bg: color-mix(in srgb, var(--wisteria-300) 10%, transparent);
   --step-now-bg: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
   --step-now-edge: var(--wisteria-300);
+  --chamber-bg: color-mix(in srgb, var(--wisteria-900) 55%, var(--surface));
+  --chamber-edge: var(--wisteria-800);
+  --chamber-ghost: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
+  --chamber-rule: color-mix(in srgb, var(--wisteria-300) 50%, var(--surface));
+  --chamber-square: color-mix(in srgb, var(--wisteria-900) 25%, var(--surface));
+  --chamber-sub: color-mix(in srgb, var(--wisteria-300) 22%, var(--chamber-square));
   --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
   --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
   --glass-hover-bg: linear-gradient(135deg,
@@ -304,18 +324,39 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--select-bg); }
 label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; font-size: 15px; color: var(--text-2); }
 label.check input { width: 20px; height: 20px; }
 
-/* Hemocytometer corner squares (Cell counting, Count samples): a 2 × 2 of ruled squares. */
-.quads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
-.quad { border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px; background:
-  linear-gradient(var(--border-strong), var(--border-strong)) 25% 0 / 1px 100% no-repeat,
-  linear-gradient(var(--border-strong), var(--border-strong)) 50% 0 / 1px 100% no-repeat,
-  linear-gradient(var(--border-strong), var(--border-strong)) 75% 0 / 1px 100% no-repeat,
-  linear-gradient(var(--border-strong), var(--border-strong)) 0 25% / 100% 1px no-repeat,
-  linear-gradient(var(--border-strong), var(--border-strong)) 0 50% / 100% 1px no-repeat,
-  linear-gradient(var(--border-strong), var(--border-strong)) 0 75% / 100% 1px no-repeat; }
-.quad strong { display: block; font-size: 15px; margin-bottom: 4px; }
-.quad label { display: block; font-size: 13px; color: var(--text-3); }
-.quad input { margin-bottom: 4px; background: var(--surface); }
+/* Hemocytometer (Cell counting, Count samples): the counting chamber drawn as on the slide.
+   The chamber is a faint wisteria glass with a fine ghost ruling, which shows in the cross
+   between the corners as the middle and edge squares. Each corner square has the slide's
+   triple-line border and its finer 4 x 4 subdivision; the inputs sit on solid fields inside. */
+.quads {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
+  margin: 0 0 12px; padding: 14px;
+  border: 1px solid var(--chamber-edge); border-radius: var(--radius-lg);
+  background:
+    repeating-linear-gradient(to right, var(--chamber-ghost) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(to bottom, var(--chamber-ghost) 0 1px, transparent 1px 7px),
+    var(--chamber-bg);
+  background-position: 14px 14px;
+}
+.quad {
+  position: relative; min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--chamber-rule); border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--chamber-square), 0 0 0 3px var(--chamber-rule),
+              0 0 0 5px var(--chamber-square), 0 0 0 6px var(--chamber-rule);
+  background:
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 25% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 50% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 75% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 0 25% / 100% 1px no-repeat,
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 0 50% / 100% 1px no-repeat,
+    linear-gradient(var(--chamber-sub), var(--chamber-sub)) 0 75% / 100% 1px no-repeat,
+    var(--chamber-square);
+}
+.quad strong { display: block; font: 600 13px/1.4 var(--font-sans); letter-spacing: .05em; color: var(--hover-ink); margin-bottom: 2px; }
+.quad label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.quad input { margin-bottom: 4px; background: var(--surface); border-color: var(--chamber-rule); }
+@media (max-width: 420px) { .quads { gap: 26px; padding: 12px; } .quad { padding: 7px; } }
 
 /* ===================================================================== buttons */
 button, .button {
