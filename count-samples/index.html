@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Count samples · BenchMate</title>
+<meta name="description" content="Count several cell samples, then work out how much suspension and medium to passage each into, as volumes and a dilution factor.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  [hidden] { display: none !important; }
+  .unit { align-self: center; color: var(--muted); }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .chips button { font-size: 14px; padding: 6px 10px; min-height: 40px; background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .sample h3 { font-size: 17px; margin: 0 0 8px; }
+  .sample details { margin: 4px 0 0; }
+  .check-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  .check-row input { width: 22px; height: 22px; }
+  .meta { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Count samples</h1>
+  <p class="lede">Count several samples, then passage each.</p>
+
+  <form id="form" autocomplete="off">
+    <h2>Samples</h2>
+    <div class="card">
+      <div class="field">
+        <label for="naming">Names</label>
+        <select id="naming" aria-label="Generic names" style="width:100%"></select>
+      </div>
+      <p class="meta" id="count-line"></p>
+      <div class="bar">
+        <button type="button" class="secondary" id="add">Add sample</button>
+        <button type="button" class="secondary" id="remove">Remove sample</button>
+        <button type="button" class="secondary" id="reset-names">Reset names</button>
+      </div>
+      <p class="hint">Leave a name blank to keep the generic one. 1 to 24 samples; removing one keeps what you typed if you add it back.</p>
+    </div>
+
+    <h2>Count</h2>
+    <p class="meta" id="counted-line"></p>
+    <div id="count-list"></div>
+
+    <h2>Passage</h2>
+    <div class="card">
+      <label class="check-row"><input type="checkbox" id="same" checked>Same for every sample</label>
+      <div class="segments" role="radiogroup" aria-label="Seeding amount as">
+        <label><input type="radio" name="amount-mode" value="density" id="mode-density" checked>Cells/mL</label>
+        <label><input type="radio" name="amount-mode" value="totalCells" id="mode-total">Total cells</label>
+      </div>
+      <div id="shared-target">
+        <div class="field">
+          <div class="label" style="font-size:15px;color:var(--muted);margin-bottom:4px">Flask size (fills to a quarter)</div>
+          <div class="chips" id="shared-chips"></div>
+          <label for="shared-volume" style="display:block;font-size:15px;color:var(--muted);margin-bottom:4px">Final volume</label>
+          <div class="row"><input id="shared-volume" inputmode="decimal" placeholder="e.g. 10" value="10"><span class="unit">mL</span></div>
+        </div>
+        <div class="field">
+          <label for="shared-amount" id="shared-amount-label">Seeding density</label>
+          <div class="row"><input id="shared-amount" data-sci inputmode="decimal" placeholder="e.g. 100000" value="100000"><span class="unit amount-unit">cells/mL</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="recipe-list"></div>
+    <p><button type="button" class="secondary" id="copy">Copy counts and recipes</button></p>
+  </form>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="../cell-counting/engine.js"></script>
+<script src="passaging.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, P = BM.passaging, CC = BM.cellCounting, $ = ui.$;
+  var form = $("#form"), KEY = "benchmate.web.count-samples";
+  var st = P.newState();
+
+  // Samples and their counts live in one JSON blob; the static fields use BM.ui.persist.
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && Array.isArray(saved.samples)) {
+      st.sampleCount = Math.min(Math.max(saved.sampleCount | 0, P.SAMPLE_MIN), P.SAMPLE_MAX);
+      saved.samples.slice(0, P.SAMPLE_MAX).forEach(function (s, i) { Object.assign(st.samples[i], s); });
+    }
+  } catch (e) { /* ignore */ }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ sampleCount: st.sampleCount, samples: st.samples })); } catch (e) { /* ignore */ } }
+
+  $("#naming").innerHTML = P.NAMINGS.map(function (n) { return '<option value="' + n.id + '">' + ui.esc(n.label) + "</option>"; }).join("");
+  ui.persist(form, "count-samples");
+
+  function readStatic() {
+    st.naming = $("#naming").value;
+    st.sameTarget = $("#same").checked;
+    st.amountMode = $("input[name=amount-mode]:checked").value;
+    st.sharedFinalVolumeText = $("#shared-volume").value;
+    st.sharedAmountText = $("#shared-amount").value;
+  }
+  readStatic();
+
+  function chipsHtml(prefix) {
+    return P.FLASKS.map(function (f) {
+      return '<button type="button" class="secondary" data-chip="' + prefix + '" data-ml="' + f.workingVolumeML + '" aria-pressed="false">' +
+        f.label + " → " + BM.format.plain(f.workingVolumeML) + " mL</button>";
+    }).join("") + '<button type="button" class="secondary" data-chip="' + prefix + '" data-ml="" aria-pressed="false">Custom</button>';
+  }
+  $("#shared-chips").innerHTML = chipsHtml("shared");
+
+  // Rows are built when the sample count changes; inputs then write into `st`.
+  function buildRows() {
+    var count = $("#count-list"), rec = $("#recipe-list");
+    count.innerHTML = ""; rec.innerHTML = "";
+    P.indices(st).forEach(function (i) {
+      var s = st.samples[i];
+      var c = document.createElement("div");
+      c.className = "card sample";
+      c.innerHTML =
+        '<h3 data-name="' + i + '"></h3>' +
+        '<div class="field"><label for="name-' + i + '">Name</label><input id="name-' + i + '" data-f="customName" data-i="' + i + '" value="' + ui.esc(s.customName) + '"></div>' +
+        '<div class="field"><label for="dens-' + i + '">Live cells</label><div class="row"><input id="dens-' + i + '" data-sci data-sci-unit="cells/mL" data-f="densityText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 20000000" value="' + ui.esc(s.densityText) + '"><span class="unit">cells/mL</span></div></div>' +
+        '<div class="field"><label for="viab-' + i + '">Viability</label><div class="row"><input id="viab-' + i + '" data-f="viabilityText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 92" value="' + ui.esc(s.viabilityText) + '"><span class="unit">%</span></div></div>' +
+        '<p class="hint" data-note="' + i + '"></p>' +
+        '<details><summary>Count on a hemocytometer</summary>' +
+        '<div class="field"><label for="hc-avg-' + i + '">Average count per square (live + dead)</label><input id="hc-avg-' + i + '" inputmode="decimal" placeholder="e.g. 24"></div>' +
+        '<div class="field"><label for="hc-dil-' + i + '">Dilution factor</label><input id="hc-dil-' + i + '" inputmode="decimal" value="2"></div>' +
+        '<div class="field"><label for="hc-via-' + i + '">Viability (optional, %)</label><input id="hc-via-' + i + '" inputmode="decimal" placeholder="e.g. 92"></div>' +
+        '<p class="hint" data-hc="' + i + '"></p>' +
+        '<button type="button" data-use="' + i + '">Use this count</button></details>';
+      count.appendChild(c);
+
+      var r = document.createElement("div");
+      r.className = "sample";
+      r.innerHTML =
+        '<div class="card" data-target="' + i + '" hidden>' +
+        '<h3 data-name="' + i + '"></h3><p class="meta" data-live="' + i + '"></p>' +
+        '<div class="chips">' + chipsHtml(i) + "</div>" +
+        '<div class="field"><label for="vol-' + i + '">Final volume</label><div class="row"><input id="vol-' + i + '" data-f="finalVolumeText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 10" value="' + ui.esc(s.finalVolumeText) + '"><span class="unit">mL</span></div></div>' +
+        '<div class="field"><label for="amt-' + i + '" data-amount-label>Seeding density</label><div class="row"><input id="amt-' + i + '" data-sci data-f="amountText" data-i="' + i + '" inputmode="decimal" value="' + ui.esc(s.amountText) + '"><span class="unit amount-unit"></span></div></div></div>' +
+        '<section class="result" aria-live="polite"><div class="caption" data-name="' + i + '"></div><div class="hero" data-hero="' + i + '">—</div><div data-body="' + i + '"></div><div data-warn="' + i + '"></div></section>';
+      rec.appendChild(r);
+    });
+  }
+
+  function render() {
+    var idx = P.indices(st), mode = st.amountMode, total = mode === "totalCells";
+    var unit = total ? "cells" : "cells/mL", label = total ? "Cells to seed" : "Seeding density";
+    $("#count-line").textContent = idx.length + " sample" + (idx.length === 1 ? "" : "s");
+    $("#add").disabled = idx.length >= P.SAMPLE_MAX;
+    $("#remove").disabled = idx.length <= P.SAMPLE_MIN;
+    $("#reset-names").disabled = !P.hasCustomNames(st);
+    $("#counted-line").textContent = P.countedSamples(st) + " of " + idx.length + " counted. Seeding uses live cells.";
+    $("#shared-target").hidden = !st.sameTarget;
+    $("#shared-amount-label").textContent = label;
+    $("#shared-amount").placeholder = total ? "e.g. 1000000" : "e.g. 100000";
+    $("#shared-amount").parentNode.querySelector(".amount-unit").textContent = unit;
+    chipState($("#shared-chips"), st.sharedFinalVolumeText);
+
+    idx.forEach(function (i) {
+      var s = st.samples[i], nm = P.name(st, i);
+      ui.$$("[data-name='" + i + "']").forEach(function (el) { el.textContent = nm; });
+      $("#name-" + i).placeholder = P.genericName(st.naming, i);
+      $("[data-note='" + i + "']").textContent = s.countNote || "";
+      var target = $("[data-target='" + i + "']");
+      target.hidden = st.sameTarget;
+      target.querySelector("[data-amount-label]").textContent = label;
+      target.querySelector(".amount-unit").textContent = unit;
+      $("#amt-" + i).placeholder = total ? "e.g. 1000000" : "e.g. 100000";
+      var d = P.density(st, i);
+      $("[data-live='" + i + "']").textContent = d != null ? BM.format.scientific(d) + " cells/mL" : "Not counted";
+      chipState(target.querySelector(".chips"), s.finalVolumeText);
+
+      var res = P.sampleRecipe(st, i), hero = $("[data-hero='" + i + "']"), body = $("[data-body='" + i + "']");
+      if (res && res.ok) {
+        var r = res.recipe, p = P.mLParts(r.suspensionVolume);
+        hero.innerHTML = ui.esc(p.value) + " <small>" + ui.esc(p.unit) + " cells</small>";
+        body.innerHTML = '<p class="hint">' + [
+          "+ " + P.mL(r.mediumVolume) + " medium → " + P.mL(r.finalVolume) + " total",
+          P.dilutionText(r.dilutionFactor), P.detailText(st, i, r)
+        ].map(ui.esc).join("<br>") + "</p>";
+      } else {
+        hero.textContent = "—";
+        body.innerHTML = res ? "" : '<p class="empty">' + (d == null ? "Count this sample first" : "Enter final volume and seeding amount") + "</p>";
+      }
+      ui.warnings($("[data-warn='" + i + "']"), P.sampleWarnings(st, i));
+    });
+    $("#copy").disabled = P.countedSamples(st) === 0;
+  }
+
+  function chipState(box, volText) {
+    var v = BM.format.parse(volText);
+    var f = v == null ? null : P.matchingFlask(v / 1000);
+    ui.$$("button", box).forEach(function (b) {
+      var ml = b.getAttribute("data-ml");
+      b.setAttribute("aria-pressed", String(ml === "" ? !f : !!f && Number(ml) === f.workingVolumeML));
+    });
+  }
+
+  // Events: typing into a row writes to state; everything else re-reads the static fields.
+  form.addEventListener("input", function (e) {
+    var t = e.target;
+    if (t.getAttribute && t.getAttribute("data-f")) {
+      var s = st.samples[+t.getAttribute("data-i")];
+      s[t.getAttribute("data-f")] = t.value;
+      if (t.getAttribute("data-f") === "densityText") s.countNote = null;   // typing over a count makes it a typed one
+      save();
+    }
+    readStatic(); render();
+  });
+  form.addEventListener("change", function () { readStatic(); render(); });
+  form.addEventListener("submit", function (e) { e.preventDefault(); });
+  form.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button");
+    if (!b) return;
+    if (b.hasAttribute("data-chip")) {
+      var key = b.getAttribute("data-chip"), ml = b.getAttribute("data-ml");
+      var input = key === "shared" ? $("#shared-volume") : $("#vol-" + key);
+      if (ml !== "") {
+        input.value = ml;
+        if (key === "shared") st.sharedFinalVolumeText = ml; else st.samples[+key].finalVolumeText = ml;
+        save(); render();
+      }
+      input.focus();
+    } else if (b.hasAttribute("data-use")) {
+      var i = +b.getAttribute("data-use");
+      // The hemocytometer count: average per square × dilution × 10⁴ (the Cell counting engine).
+      var avg = BM.format.parse($("#hc-avg-" + i).value), dil = BM.format.parse($("#hc-dil-" + i).value);
+      var vText = $("#hc-via-" + i).value, vp = BM.format.parse(vText);
+      var invalid = CC.viabilityIsInvalid("average", vText);
+      var sum = !invalid && avg != null && dil != null ? CC.summarizeAverage(avg, vp == null ? null : vp / 100, dil) : null;
+      var hint = $("[data-hc='" + i + "']");
+      if (!sum) { hint.textContent = invalid ? "Viability is a percentage, 0 to 100." : "Enter the average count and a dilution factor."; return; }
+      var s = st.samples[i];
+      s.densityText = BM.format.editable(sum.viableDensity, 6);
+      s.viabilityText = sum.viability != null ? BM.format.number(sum.viability * 100) : "";
+      s.countNote = "Average count ×" + BM.format.plain(dil) + (sum.viability != null ? " · " + BM.format.number(sum.viability * 100) + "% viable" : "");
+      var warns = CC.countWarnings(sum.averageTotal).map(CC.countWarningText);
+      hint.textContent = warns.join(" ");
+      $("#dens-" + i).value = s.densityText; $("#viab-" + i).value = s.viabilityText;
+      save(); render();
+    }
+  });
+  function rebuild() { buildRows(); render(); save(); }
+  $("#add").addEventListener("click", function () { if (st.sampleCount < P.SAMPLE_MAX) { st.sampleCount++; rebuild(); } });
+  $("#remove").addEventListener("click", function () { if (st.sampleCount > P.SAMPLE_MIN) { st.sampleCount--; rebuild(); } });
+  $("#reset-names").addEventListener("click", function () { P.resetNames(st); rebuild(); });
+  $("#same").addEventListener("change", function () {
+    readStatic();
+    if (!st.sameTarget) { P.splitTargets(st); rebuild(); }   // each sample starts from the shared values
+  });
+  ui.copyButton($("#copy"), function () { return P.copyText(st); });
+
+  buildRows(); render();
+})();
+</script>
+</body>
+</html>

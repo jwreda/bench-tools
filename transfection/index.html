@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfection · BenchMate</title>
+<meta name="description" content="PEI transfection of a HEK293 suspension culture: how much of each plasmid, PEI and diluent to pipette per flask, with parallel transfections, a PEI master mix and shelf totals.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  .run-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .run-head strong { font-size: 17px; }
+  .run-head .actions { display: flex; gap: 6px; }
+  button.small { font-size: 14px; padding: 6px 10px; min-height: 36px; }
+  button[disabled] { opacity: .5; cursor: default; }
+  .field > label input, .field > label select { margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .grid label { display: block; font-size: 14px; color: var(--muted); }
+  .grid label input { margin-top: 4px; }
+  .plasmid { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+  .plasmid .head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 15px; margin-bottom: 6px; }
+  .changed { color: var(--accent); font-size: 14px; margin: 0 0 10px; }
+  .inline { display: flex; gap: 8px; align-items: center; }
+  .inline > * { flex: 1 1 0; min-width: 0; }
+  .inline .unit { flex: 0 0 auto; color: var(--muted); font-size: 15px; }
+  h3 { font-size: 17px; margin: 18px 0 4px; }
+  h3 small { font-weight: 400; color: var(--muted); font-size: 15px; }
+  .section-title { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 2px; }
+  table.recipe td.tick { width: 34px; padding-right: 0; }
+  table.recipe td.tick input { width: 22px; height: 22px; margin-top: 2px; }
+  table.recipe td .hint { margin: 0; }
+  .amt { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; font-size: 15px; }
+  td.num .hint { text-align: right; }
+  .timer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .timer .clock { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4.2ch; }
+  .timer.done .clock { color: var(--accent); }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 15px; }
+  table.kv td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.kv td:first-child { color: var(--muted); width: 42%; }
+  .progress { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Transfection</h1>
+  <p class="lede">DNA and PEI per flask. PEI transfection of a HEK293 suspension culture: what to pipette for each flask, with the standing protocol below.</p>
+
+  <form id="form" autocomplete="off">
+    <h2>Transfections</h2>
+    <div id="runs"></div>
+    <p><button type="button" class="secondary" id="add-run">Add a transfection</button></p>
+    <p class="hint">Up to 12 transfections side by side. The flasks of one transfection share one set of tubes.</p>
+
+    <h2>Cells</h2>
+    <div class="card">
+      <div class="field">
+        <label for="seeding">Seeding density (live cells/mL before the mix)</label>
+        <div class="row"><input id="seeding" data-sci data-sci-scale="1e6" data-sci-unit="cells/mL" inputmode="decimal" value="1.04"><span class="hint" style="align-self:center">× 10⁶/mL</span></div>
+      </div>
+      <div class="field">
+        <label for="source">Source flask density (optional)</label>
+        <div class="row"><input id="source" data-sci data-sci-scale="1e6" data-sci-unit="cells/mL" inputmode="decimal" placeholder="from your count"><span class="hint" style="align-self:center">× 10⁶/mL</span></div>
+        <p class="hint">With a count you also get the source culture and fresh medium per flask.</p>
+      </div>
+      <div class="field">
+        <div class="label">Excess to prepare</div>
+        <div class="segments" role="radiogroup" aria-label="Excess to prepare">
+          <label><input type="radio" name="excess" id="excess-0" value="0" checked>0 %</label>
+          <label><input type="radio" name="excess" id="excess-5" value="5">+5 %</label>
+          <label><input type="radio" name="excess" id="excess-10" value="10">+10 %</label>
+          <label><input type="radio" name="excess" id="excess-20" value="20">+20 %</label>
+        </div>
+        <p class="hint" style="margin-top:-6px">Scales every tube and the master mix. The mix added to each flask stays the same.</p>
+      </div>
+    </div>
+
+    <details id="defaults-box">
+      <summary>Defaults: the standing protocol</summary>
+      <div class="card">
+        <p class="hint" style="margin-top:0">These start as the lab's example protocol (DNA : PEI 1 : 2, 1 µg/mL, PEI 1 mg/mL, OptiPRO SFM, two tubes, 10 mL mix per 240 mL, 1.04 × 10⁶ live cells/mL, no excess, 9:30). Adjust to your protocol; changes are remembered in this browser.</p>
+        <p class="changed" id="changed" hidden></p>
+        <div class="field">
+          <div class="label">DNA and PEI</div>
+          <div class="inline"><span class="unit">1 :</span><input id="ratio" inputmode="decimal" value="2" aria-label="PEI parts per 1 part DNA"><span class="unit">w/w</span></div>
+          <div class="inline" style="margin-top:8px"><input id="dose" inputmode="decimal" value="1" aria-label="DNA dose"><span class="unit">µg/mL culture</span></div>
+          <div class="inline" style="margin-top:8px"><input id="pei-stock" inputmode="decimal" value="1" aria-label="PEI stock"><span class="unit">mg/mL PEI stock</span></div>
+          <p class="hint">Reads as PEI : DNA <span id="ratio-note">2</span> : 1 by mass. The dose is per mL of culture, before the mix goes in.</p>
+        </div>
+        <div class="field">
+          <label for="diluent">Diluent</label>
+          <input id="diluent" value="OptiPRO SFM" placeholder="e.g. OptiPRO SFM" autocapitalize="off">
+          <p class="hint">The serum-free medium DNA and PEI are diluted in.</p>
+        </div>
+        <div class="field">
+          <div class="label">Mixing</div>
+          <div class="segments" role="radiogroup" aria-label="Mixing">
+            <label><input type="radio" name="mixing" id="mixing-two" value="twoTubes" checked>Two tubes</label>
+            <label><input type="radio" name="mixing" id="mixing-one" value="oneTube">One tube</label>
+          </div>
+          <p class="hint" id="mixing-note" style="margin-top:-6px"></p>
+        </div>
+        <div class="field">
+          <div class="label">Mix volume</div>
+          <div class="inline"><input id="mix-ref" inputmode="decimal" value="10" aria-label="Mix volume in mL"><span class="unit">mL mix per</span></div>
+          <div class="inline" style="margin-top:8px"><input id="culture-ref" inputmode="decimal" value="240" aria-label="Culture volume in mL"><span class="unit">mL culture</span></div>
+          <div class="inline" style="margin-top:8px"><span class="unit">Culture : mix</span><input id="mix-ratio" inputmode="decimal" value="24" aria-label="Culture to mix ratio"><span class="unit">: 1</span></div>
+          <p class="hint" id="mix-note">Edit either; the other follows.</p>
+        </div>
+        <div class="field">
+          <div class="label">Incubation (DNA + PEI complexing)</div>
+          <div class="inline"><input id="inc-min" inputmode="numeric" value="9" aria-label="Incubation minutes"><span class="unit">min</span><input id="inc-sec" inputmode="numeric" value="30" aria-label="Incubation seconds"><span class="unit">s</span></div>
+        </div>
+        <div class="field">
+          <div class="label">New transfections take their culture volume in</div>
+          <div class="segments" role="radiogroup" aria-label="Culture volumes in">
+            <label><input type="radio" name="cunit" id="cunit-ml" value="mL" checked>mL</label>
+            <label><input type="radio" name="cunit" id="cunit-l" value="L">L</label>
+          </div>
+        </div>
+        <p><button type="button" class="secondary" id="reset-defaults">Reset to the lab's defaults</button></p>
+      </div>
+    </details>
+  </form>
+
+  <h2>Recipe</h2>
+  <section id="recipe" aria-live="polite">
+    <p class="empty" id="message"></p>
+    <div id="warnings"></div>
+    <div id="recipe-body"></div>
+  </section>
+
+  <h2>Summary</h2>
+  <section class="result" id="summary">
+    <div class="caption" id="headline"></div>
+    <div class="hero" id="hero">—</div>
+    <div id="summary-body"></div>
+    <p><button type="button" class="secondary" id="copy">Copy recipe</button></p>
+  </section>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script src="batch.js"></script>
+<script src="model.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, $ = ui.$, esc = ui.esc, E = BM.transfection, M = E.model, T = E.Text, D = E.Defaults, R = E.Recipe, F = BM.format;
+  var form = $("#form");
+  var RUNS_KEY = "benchmate.web.transfection.runs";
+
+  // ------------------------------------------------------------ state
+  var runs = [];          // run drafts (see model.js newRun)
+  var checks = {};        // item id -> the amount text it was ticked at
+  var last = null;        // the last compute() result
+  var lastRecipe = null;
+  var timer = E.Timer.create(570), timerHandle = null;
+
+  function loadRuns() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(RUNS_KEY) || "null");
+      if (saved && Array.isArray(saved.runs) && saved.runs.length >= 1 && saved.runs.length <= M.RUN_RANGE.max) {
+        var ok = saved.runs.every(function (r) {
+          return r && typeof r.id === "string" && Array.isArray(r.plasmids) && r.plasmids.length >= M.PLASMID_RANGE.min &&
+            r.plasmids.length <= M.PLASMID_RANGE.max && r.plasmids.every(function (p) { return p && typeof p.id === "string"; });
+        });
+        if (ok) {
+          runs = saved.runs.map(function (r) {
+            return {
+              id: String(r.id), nameText: String(r.nameText || ""), cultureText: String(r.cultureText || ""),
+              cultureUnit: r.cultureUnit === "L" ? "L" : "mL", flaskText: String(r.flaskText || ""),
+              ratioBasis: r.ratioBasis === "molar" ? "molar" : "mass",
+              plasmids: r.plasmids.map(function (p) {
+                return { id: String(p.id), nameText: String(p.nameText || ""), stockText: String(p.stockText || ""), partText: String(p.partText || ""), sizeText: String(p.sizeText || "") };
+              })
+            };
+          });
+          M.reserveIDs(runs);
+          return;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    runs = [M.newRun(defaultUnit())];
+  }
+  function saveRuns() {
+    try { localStorage.setItem(RUNS_KEY, JSON.stringify({ runs: runs })); } catch (e) { /* ignore */ }
+  }
+  function defaultUnit() { return $("input[name=cunit]:checked").value; }
+
+  // ------------------------------------------------------------ the run blocks
+  function runHTML(run, index) {
+    var many = run.plasmids.length > 1, molar = many && run.ratioBasis === "molar";
+    var flask = M.flaskFor(run.cultureText, run.cultureUnit);
+    var h = '<section class="card run" data-run="' + esc(run.id) + '">';
+    h += '<div class="run-head"><strong>' + esc(M.runDisplayName(run, runs)) + '</strong><span class="actions">' +
+      '<button type="button" class="secondary small" data-act="dup-run">Duplicate</button>' +
+      '<button type="button" class="secondary small" data-act="rm-run"' + (runs.length <= M.RUN_RANGE.min ? " disabled" : "") + ">Remove</button></span></div>";
+    h += '<div class="field"><label>Name<input data-f="name" value="' + esc(run.nameText) + '" placeholder="Transfection ' + (index + 1) + '" autocapitalize="off"></label></div>';
+    h += '<div class="field"><div class="label">Culture per flask</div><div class="row">' +
+      '<input data-f="culture" inputmode="decimal" aria-label="Culture volume per flask" value="' + esc(run.cultureText) + '">' +
+      '<select data-f="unit" aria-label="Culture volume unit"><option value="mL"' + (run.cultureUnit === "mL" ? " selected" : "") + '>mL</option><option value="L"' + (run.cultureUnit === "L" ? " selected" : "") + ">L</option></select></div>" +
+      '<div class="row" style="margin-top:8px"><select data-f="flask" aria-label="Flask size">' +
+      E.FLASK_PRESETS.map(function (p) {
+        var label = p.culture == null ? "Custom volume" : p.label + " flask · " + E.cultureDescription(p);
+        return '<option value="' + p.id + '"' + (p.id === flask.id ? " selected" : "") + ">" + label + "</option>";
+      }).join("") + "</select></div>" +
+      '<p class="hint">A 24 % fill: 240 mL of cells in a 1 L flask.</p></div>';
+    h += '<div class="field"><label>Flasks<input data-f="flasks" inputmode="numeric" value="' + esc(run.flaskText) + '"></label>' +
+      '<p class="hint">1 to 24 flasks of this culture volume, fed from one set of tubes.</p></div>';
+    if (many) {
+      h += '<div class="segments" role="radiogroup" aria-label="Ratio basis">' +
+        '<label><input type="radio" data-f="basis" name="basis-' + esc(run.id) + '" value="mass"' + (!molar ? " checked" : "") + '>Mass ratio</label>' +
+        '<label><input type="radio" data-f="basis" name="basis-' + esc(run.id) + '" value="molar"' + (molar ? " checked" : "") + ">Molar ratio</label></div>";
+    }
+    run.plasmids.forEach(function (p, i) {
+      h += '<div class="plasmid" data-p="' + esc(p.id) + '"><div class="head"><span>Plasmid ' + (i + 1) + "</span>" +
+        (many ? '<button type="button" class="secondary small" data-act="rm-plasmid">Remove</button>' : "") + "</div>";
+      h += '<div class="grid" style="grid-template-columns:1fr"><label>Name<input data-f="pname" value="' + esc(p.nameText) + '" placeholder="' + (many ? "Plasmid " + (i + 1) : "Plasmid") + '" autocapitalize="off"></label></div>';
+      h += '<div class="grid"><label>Stock, ng/µL<input data-f="stock" inputmode="decimal" value="' + esc(p.stockText) + '"></label>';
+      if (many) h += '<label>Ratio part<input data-f="part" inputmode="decimal" value="' + esc(p.partText) + '"></label>';
+      if (molar) h += '<label>Size, bp<input data-f="size" inputmode="decimal" value="' + esc(p.sizeText) + '"></label>';
+      h += "</div></div>";
+    });
+    h += '<p style="margin-bottom:0"><button type="button" class="secondary small" data-act="add-plasmid"' +
+      (run.plasmids.length >= M.PLASMID_RANGE.max ? " disabled" : "") + ">Add a plasmid</button></p>";
+    if (many) h += '<p class="hint">Parts are ' + (molar ? "molar" : "mass") + " fractions" + (molar ? " (each plasmid is weighted by its size × 650 g/mol per bp)" : "") + ".</p>";
+    return h + "</section>";
+  }
+  function renderRuns() {
+    $("#runs").innerHTML = runs.map(runHTML).join("");
+    $("#add-run").disabled = runs.length >= M.RUN_RANGE.max;
+  }
+  /** Fields -> run drafts (the DOM is the source of truth between structural changes). */
+  function readRuns() {
+    ui.$$("#runs .run").forEach(function (el) {
+      var run = runs.filter(function (r) { return r.id === el.getAttribute("data-run"); })[0];
+      if (!run) return;
+      var f = function (name, root) { var x = (root || el).querySelector('[data-f="' + name + '"]'); return x ? x.value : null; };
+      run.nameText = f("name"); run.cultureText = f("culture"); run.cultureUnit = f("unit"); run.flaskText = f("flasks");
+      var basis = el.querySelector('[data-f="basis"]:checked');
+      if (basis) run.ratioBasis = basis.value;
+      ui.$$(".plasmid", el).forEach(function (pe) {
+        var p = run.plasmids.filter(function (q) { return q.id === pe.getAttribute("data-p"); })[0];
+        if (!p) return;
+        p.nameText = f("pname", pe); p.stockText = f("stock", pe);
+        var part = f("part", pe), size = f("size", pe);
+        if (part != null) p.partText = part;
+        if (size != null) p.sizeText = size;
+      });
+    });
+  }
+
+  // ------------------------------------------------------------ structural actions
+  function changeStructure(fn) {
+    var oldIDs = runs.map(function (r) { return r.id; });
+    readRuns();
+    fn();
+    checks = M.rekeyChecks(checks, oldIDs, runs.map(function (r) { return r.id; }));
+    renderRuns();
+    render();
+  }
+  $("#runs").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var runEl = btn.closest(".run"), id = runEl.getAttribute("data-run");
+    var run = runs.filter(function (r) { return r.id === id; })[0];
+    var act = btn.getAttribute("data-act");
+    changeStructure(function () {
+      if (act === "add-plasmid" && run.plasmids.length < M.PLASMID_RANGE.max) run.plasmids.push(M.newPlasmidRow());
+      else if (act === "rm-plasmid" && run.plasmids.length > M.PLASMID_RANGE.min) {
+        var pid = btn.closest(".plasmid").getAttribute("data-p");
+        run.plasmids = run.plasmids.filter(function (p) { return p.id !== pid; });
+      } else if (act === "rm-run" && runs.length > M.RUN_RANGE.min) {
+        runs = runs.filter(function (r) { return r.id !== id; });
+        M.dropRunChecks(checks, id);
+      } else if (act === "dup-run" && runs.length < M.RUN_RANGE.max) {
+        var copy = M.newRun(run.cultureUnit);
+        copy.nameText = run.nameText ? run.nameText + " copy" : "";
+        copy.cultureText = run.cultureText; copy.flaskText = run.flaskText; copy.ratioBasis = run.ratioBasis;
+        copy.plasmids = run.plasmids.map(function (p) {
+          var q = M.newPlasmidRow(); q.nameText = p.nameText; q.stockText = p.stockText; q.partText = p.partText; q.sizeText = p.sizeText; return q;
+        });
+        runs.splice(runs.indexOf(run) + 1, 0, copy);
+      }
+    });
+  });
+  $("#add-run").addEventListener("click", function () {
+    changeStructure(function () { if (runs.length < M.RUN_RANGE.max) runs.push(M.newRun(defaultUnit())); });
+  });
+
+  // Field edits that move other fields: a unit switch keeps the volume, a flask size writes the
+  // culture field, the molar/mass switch shows or hides the size fields.
+  form.addEventListener("change", function (e) {
+    var t = e.target, runEl = t.closest && t.closest(".run");
+    if (!runEl) return;
+    var f = t.getAttribute("data-f");
+    var run = runs.filter(function (r) { return r.id === runEl.getAttribute("data-run"); })[0];
+    var cultureInput = runEl.querySelector('[data-f="culture"]');
+    if (f === "unit") {
+      cultureInput.value = M.switchUnit(cultureInput.value, run.cultureUnit, t.value);
+      run.cultureUnit = t.value;
+    } else if (f === "flask") {
+      var preset = E.flaskById(t.value);
+      if (preset.culture != null) cultureInput.value = M.volumeText(preset.culture, runEl.querySelector('[data-f="unit"]').value);
+    } else if (f === "basis") {
+      readRuns(); renderRuns();
+    }
+  });
+  form.addEventListener("input", function (e) {
+    var t = e.target;
+    // The mix volume and the culture : mix ratio move together.
+    if (t.id === "mix-ratio") {
+      var ratio = F.parse(t.value), cref = F.parse($("#culture-ref").value);
+      if (ratio > 0 && cref > 0) $("#mix-ref").value = F.editable(cref / ratio, 6);
+    } else if (t.id === "mix-ref" || t.id === "culture-ref") {
+      syncRatio();
+    } else if (t.getAttribute && t.getAttribute("data-f") === "culture") {
+      var runEl = t.closest(".run");
+      runEl.querySelector('[data-f="flask"]').value = M.flaskFor(t.value, runEl.querySelector('[data-f="unit"]').value).id;
+    }
+  });
+  function syncRatio() {
+    var mix = F.parse($("#mix-ref").value), cref = F.parse($("#culture-ref").value);
+    $("#mix-ratio").value = mix > 0 && cref > 0 ? F.editable(cref / mix, 6) : "";
+  }
+
+  // ------------------------------------------------------------ reading the page
+  function raw() {
+    return {
+      defaults: {
+        ratio: $("#ratio").value, dose: $("#dose").value, peiStock: $("#pei-stock").value, diluent: $("#diluent").value,
+        mixingMode: $("input[name=mixing]:checked").value, mixRef: $("#mix-ref").value, cultureRef: $("#culture-ref").value,
+        incubationMin: $("#inc-min").value, incubationSec: $("#inc-sec").value, cultureUnit: defaultUnit(),
+        seedingMillions: $("#seeding").value, excessPct: +$("input[name=excess]:checked").value
+      },
+      sourceMillions: $("#source").value,
+      runs: runs
+    };
+  }
+  var LAB_FIELDS = { ratio: "2", dose: "1", "pei-stock": "1", diluent: "OptiPRO SFM", "mix-ref": "10", "culture-ref": "240", "inc-min": "9", "inc-sec": "30", seeding: "1.04" };
+  $("#reset-defaults").addEventListener("click", function () {
+    Object.keys(LAB_FIELDS).forEach(function (id) { $("#" + id).value = LAB_FIELDS[id]; });
+    $("#mixing-two").checked = true; $("#excess-0").checked = true; $("#cunit-ml").checked = true;
+    syncRatio();
+    form.dispatchEvent(new Event("input", { bubbles: true }));
+    form.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  // ------------------------------------------------------------ drawing
+  function amountCell(section, k) {
+    var item = section.items[k], padded = R.alignedAmounts(section)[k];
+    var h = padded != null ? '<span class="amt">' + esc(padded) + "</span>" : "";
+    if (item.mass != null) h += '<div class="hint">' + esc(T.mass(item.mass)) + "</div>";
+    return h;
+  }
+  function itemRow(section, k) {
+    var it = section.items[k];
+    var h = '<tr><td class="tick"><input type="checkbox" data-item="' + esc(it.id) + '" aria-label="Done: ' + esc(it.name) + '"' +
+      (M.isChecked(checks, it) ? " checked" : "") + '></td><td>' + esc(it.name);
+    if (it.note) h += '<div class="hint">' + esc(it.note) + "</div>";
+    if (it.id === "incubate") h += timerHTML();
+    return h + '</td><td class="num">' + amountCell(section, k) + "</td></tr>";
+  }
+  function sectionHTML(section, title, hint) {
+    var h = '<div class="section-title"><span>' + esc(title) + "</span>" + (hint ? "<span>" + esc(hint) + "</span>" : "") + "</div>";
+    h += '<table class="recipe"><tbody>' + section.items.map(function (_, k) { return itemRow(section, k); }).join("") + "</tbody></table>";
+    return h;
+  }
+  function timerHTML() {
+    return '<div class="timer" id="timer"><span class="clock" id="clock">' + T.clock(E.Timer.remaining(timer, Date.now())) + "</span>" +
+      '<button type="button" class="secondary small" data-timer="toggle" id="timer-toggle">Start</button>' +
+      '<button type="button" class="secondary small" data-timer="reset">Reset</button></div>';
+  }
+
+  function recipeHTML(r) {
+    var batch = r.batch, rec = r.recipe, h = "";
+    if (batch.suggestsMasterMixExcess(r.settings.excess)) h += '<p class="hint">💡 ' + esc(T.masterMixExcessHint) + "</p>";
+    if (rec.masterMix) {
+      var m = batch.masterMix;
+      h += '<div class="card"><h3 style="margin-top:0">PEI master mix <small>· ' + esc(E.Aligned.volume(m.totalVolume, "mix").text + " in a " + m.tubeHint) + "</small></h3>";
+      h += sectionHTML(rec.masterMix, "Make once, for every Tube B", "");
+      h += '<div class="section-title"><span>Portion out</span></div><table class="recipe"><tbody>';
+      var col = E.Aligned.column(rec.portionItems.map(function (p) { return p.item.amount; }));
+      rec.portionItems.forEach(function (p, i) {
+        h += '<tr><td class="tick"><input type="checkbox" data-item="' + esc(p.item.id) + '" aria-label="Done: portion for ' + esc(p.name) + '"' +
+          (M.isChecked(checks, p.item) ? " checked" : "") + "></td><td>" + esc(p.name) + '</td><td class="num"><span class="amt">' + esc(col[i]) + "</span></td></tr>";
+      });
+      h += "</tbody></table></div>";
+    }
+    rec.runs.forEach(function (g) {
+      var run = batch.run(g.id), reason = E.infeasibleReason(run.plan);
+      h += '<div class="card"><h3 style="margin-top:0">' + esc(g.name) + " <small>· " + esc(g.flasksText) + "</small></h3>";
+      if (reason) h += '<p class="note error">✕ Tubes not made: ' + esc(reason) + "</p>";
+      g.recipe.sections.forEach(function (s) {
+        var base = R.baseID(s.id);
+        if (reason && base !== "cells") return;
+        var title = base === "cells" && g.flaskCount > 1 ? s.title + " (per flask, × " + g.flaskCount + ")" : s.title;
+        var hint = null;
+        if (base === "a" || base === "mix") hint = run.plan.dnaTube.tubeHint;
+        else if (base === "b" && run.plan.peiTube) hint = run.plan.peiTube.tubeHint;
+        h += sectionHTML(s, title, hint);
+      });
+      h += "</div>";
+    });
+    if (rec.incubate) {
+      h += '<div class="card"><div class="section-title" style="margin-top:0"><span>Incubate all together</span></div><table class="recipe"><tbody>' +
+        itemRow({ items: [rec.incubate] }, 0) + "</tbody></table><p class=\"hint\">Once the last tubes are combined, incubate them all together, then add each to its flasks.</p></div>";
+    }
+    h += '<p class="progress" id="progress"></p>';
+    return h;
+  }
+
+  function summaryHTML(r, rep) {
+    var batch = r.batch, h = "";
+    if (!r.isBatch) {
+      h += '<table class="kv"><tbody>' + rep.reading.resultRows.map(function (x) {
+        return "<tr><td>" + esc(x[0]) + "</td><td>" + esc(x[1]) + "</td></tr>";
+      }).join("") + "</tbody></table>";
+    } else if (batch.showsTotals) {
+      var lines = E.reagentLines(batch, r.settings);
+      h += '<div class="section-title"><span>Reagents needed</span></div><table class="recipe"><tbody>';
+      var col = E.Aligned.column(lines.filter(function (l) { return l.amount; }).map(function (l) { return l.amount; })), i = 0;
+      lines.forEach(function (l) {
+        h += "<tr><td>" + esc(l.name) + (l.note ? '<div class="hint">' + esc(l.note) + "</div>" : "") + '</td><td class="num">' +
+          (l.amount ? '<span class="amt">' + esc(col[i++]) + "</span>" : esc(l.text)) +
+          (l.mass != null ? '<div class="hint">' + esc(T.mass(l.mass)) + "</div>" : "") + "</td></tr>";
+      });
+      h += "</tbody></table>";
+      if (r.settings.excess) h += '<p class="hint">Tube volumes include the ' + esc(E.excessText(r.settings.excess)) + " excess.</p>";
+    } else {
+      h += '<p class="note error">✕ Totals are not worked out until every transfection\'s tubes fit:</p>' +
+        batch.infeasibleRuns.map(function (x) { return '<p class="note error">' + esc(x.name + ": " + x.reason) + "</p>"; }).join("");
+    }
+    var rows = r.isBatch
+      ? E.protocolRows(r.settings, r.settings.excess, r.settings.seedingDensityPerML, r.sourceDensity != null ? r.sourceDensity / 1000 : null)
+      : rep.reading.settingsRows;
+    h += '<details><summary>Protocol</summary><table class="kv"><tbody>' + rows.map(function (x) {
+      return "<tr><td>" + esc(x[0]) + "</td><td>" + esc(x[1]) + "</td></tr>";
+    }).join("") + "</tbody></table></details>";
+    return h;
+  }
+
+  /** What the single-run report needs: the one run's readings. */
+  function singleReport(r) {
+    var run = r.batch.runs[0], rec = r.recipe.runs[0];
+    var draft = runs[0];
+    var rep = {
+      date: new Date(), defaults: r.settings, run: run, recipe: rec.recipe, excessPct: r.settings.excess,
+      seedingDensityPerML: r.settings.seedingDensityPerML, sourceDensityPerML: r.sourceDensity != null ? r.sourceDensity / 1000 : null,
+      flaskTitle: E.flaskMatching(run.cultureVolumePerFlask).label, plasmidCount: draft.plasmids.length,
+      ratioBasis: draft.plasmids.length > 1 ? draft.ratioBasis : "mass"
+    };
+    rep.reading = E.reportReadings(rep);
+    return rep;
+  }
+
+  function copyText() {
+    if (!last || !last.batch) return "";
+    var r = last, text;
+    if (!r.isBatch) text = E.singlePlainText(singleReport(r));
+    else text = E.batchPlainText({ date: new Date(), defaults: r.settings, excessPct: r.settings.excess,
+      seedingDensityPerML: r.settings.seedingDensityPerML, batch: r.batch, recipe: r.recipe });
+    // The page's own warnings that the plain text doesn't carry (an unusable source count) travel with it.
+    var extra = r.warnings.filter(function (w) { return /source density isn't/.test(w.text); });
+    return text + extra.map(function (w) { return "\n! " + w.text; }).join("");
+  }
+
+  function render() {
+    readRuns();
+    var settingsDelta = null;
+    var r = last = M.compute(raw());
+    lastRecipe = r.recipe;
+    $("#ratio-note").textContent = T.number(r.settings.peiToDNARatio, 2);
+    $("#mixing-note").textContent = r.settings.mixingMode === "twoTubes"
+      ? "DNA and PEI each in half the mix, then combined." : "Plasmids into the diluent, then PEI straight in.";
+    $("#mix-note").textContent = "Edit either; the other follows. Every flask scales by this: " +
+      T.number(D.mixFraction(r.settings) * 100, 2) + " % of the culture goes in as mix.";
+    var changed = D.changedFields(r.settings).map(function (k) { return D.FIELD_TITLES[k]; });
+    $("#changed").hidden = !changed.length;
+    $("#changed").textContent = changed.length ? "Changed from the lab's defaults: " + changed.join(", ") + "." : "";
+
+    // Keep the idle timer at the protocol's incubation time.
+    if (timer.state === "idle" && timer.duration !== r.settings.incubationSeconds) timer = E.Timer.create(r.settings.incubationSeconds);
+
+    ui.warnings($("#warnings"), r.warnings);
+    $("#message").textContent = r.message || "";
+    $("#message").hidden = !r.message;
+    $("#copy").disabled = !r.batch;
+    if (!r.batch) {
+      $("#recipe-body").innerHTML = "";
+      $("#headline").textContent = "";
+      $("#hero").textContent = "—";
+      $("#summary-body").innerHTML = '<p class="empty">' + esc(r.message || "") + "</p>";
+    } else {
+      var rep = r.isBatch ? null : singleReport(r);
+      $("#recipe-body").innerHTML = recipeHTML(r);
+      $("#headline").textContent = E.headline(r.batch);
+      var hero = T.mass(r.batch.totals.dnaMass);
+      var parts = hero.split(" ");
+      $("#hero").innerHTML = esc(parts[0]) + " <small>" + esc(parts.slice(1).join(" ")) + " of DNA</small>";
+      $("#summary-body").innerHTML = summaryHTML(r, rep);
+      syncTicks();
+      updateTimer();
+    }
+    saveRuns();
+  }
+
+  // ------------------------------------------------------------ ticks and the incubation timer
+  function syncTicks() {
+    if (!lastRecipe) return;
+    var all = lastRecipe.allItems, done = 0;
+    all.forEach(function (it) { if (M.isChecked(checks, it)) done++; });
+    ui.$$("input[data-item]").forEach(function (cb) {
+      var it = lastRecipe.item(cb.getAttribute("data-item"));
+      cb.checked = !!it && M.isChecked(checks, it);
+    });
+    var p = $("#progress");
+    if (p) p.textContent = done + " of " + all.length + " done";
+  }
+  $("#recipe").addEventListener("change", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-item");
+    if (!id || !lastRecipe) return;
+    var it = lastRecipe.item(id);
+    if (it) { M.toggle(checks, it); syncTicks(); }
+  });
+  $("#recipe").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-timer]");
+    if (!b) return;
+    var now = Date.now();
+    if (b.getAttribute("data-timer") === "reset") {
+      E.Timer.reset(timer);
+      timer = E.Timer.create(last.settings.incubationSeconds);
+      if (lastRecipe && lastRecipe.item("incubate")) delete checks.incubate;
+    } else if (timer.state === "running") E.Timer.pause(timer, now);
+    else E.Timer.start(timer, now);
+    updateTimer(); syncTicks();
+  });
+  function updateTimer() {
+    var clock = $("#clock");
+    if (clock) {
+      var now = Date.now(), done = E.Timer.isDone(timer, now);
+      clock.textContent = T.clock(done ? 0 : E.Timer.remaining(timer, now));
+      $("#timer").classList.toggle("done", done);
+      $("#timer-toggle").textContent = timer.state === "running" && !done ? "Pause" : (timer.state === "paused" ? "Resume" : "Start");
+      $("#timer-toggle").disabled = done;
+      if (done && lastRecipe && lastRecipe.item("incubate") && checks.incubate !== "") { checks.incubate = ""; syncTicks(); }
+    }
+    if (timer.state === "running" && !timerHandle) timerHandle = setInterval(updateTimer, 250);
+    if ((timer.state !== "running" || E.Timer.isDone(timer, Date.now())) && timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+  }
+
+  // ------------------------------------------------------------ go
+  loadRuns();
+  ui.persist(form, "transfection");
+  syncRatio();
+  renderRuns();
+  ui.copyButton($("#copy"), copyText);
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

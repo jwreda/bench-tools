@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reagent maker · BenchMate</title>
+<meta name="description" content="How much powder to weigh for a target molarity, or for a % w/v or % v/v solution, with a warning when the mass is too small to weigh.">
+<link rel="stylesheet" href="../assets/bench.css">
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Reagent maker</h1>
+  <p class="lede">Powder to solution. Mass to weigh for a molar or percent recipe.</p>
+
+  <form id="form" class="card" autocomplete="off">
+    <div class="segments" role="radiogroup" aria-label="Reagent maker mode">
+      <label><input type="radio" name="mode" value="molar" id="mode-molar" checked>Molar</label>
+      <label><input type="radio" name="mode" value="percent" id="mode-percent">% Solution</label>
+    </div>
+
+    <div id="molar-fields">
+      <div class="field">
+        <label for="molarity">Target molarity</label>
+        <div class="row"><input id="molarity" inputmode="decimal" placeholder="e.g. 1" value="1"><select id="molarity-unit" aria-label="Molarity unit"></select></div>
+      </div>
+      <div class="field">
+        <label for="volume">Final volume</label>
+        <div class="row"><input id="volume" inputmode="decimal" placeholder="e.g. 500" value="500"><select id="volume-unit" aria-label="Volume unit"></select></div>
+      </div>
+      <div class="field">
+        <label for="mw">Molecular weight</label>
+        <div class="row"><input id="mw" inputmode="decimal" placeholder="e.g. 121.14" value="121.14"><span class="hint" style="align-self:center">g/mol</span></div>
+      </div>
+      <p class="hint">Use the MW on your bottle: a hydrate weighs more (CaCl₂·2H₂O is 147.01, anhydrous CaCl₂ 110.98).</p>
+    </div>
+
+    <div id="percent-fields" hidden>
+      <div class="segments" role="radiogroup" aria-label="Percent basis">
+        <label><input type="radio" name="basis" value="wv" id="basis-wv" checked>% w/v</label>
+        <label><input type="radio" name="basis" value="vv" id="basis-vv">% v/v</label>
+      </div>
+      <div class="field">
+        <label for="percent">Percent</label>
+        <div class="row"><input id="percent" inputmode="decimal" placeholder="e.g. 10" value="10"><span class="hint" style="align-self:center">%</span></div>
+      </div>
+      <div class="field">
+        <label for="pvol">Total volume</label>
+        <div class="row"><input id="pvol" inputmode="decimal" placeholder="e.g. 500" value="500"><span class="hint" style="align-self:center">mL</span></div>
+      </div>
+      <div class="field">
+        <label for="amount" id="amount-label">Or known mass (solves percent)</label>
+        <div class="row"><input id="amount" inputmode="decimal" placeholder="e.g. 50"><span class="hint" style="align-self:center" id="amount-unit">g</span></div>
+      </div>
+      <p class="hint" id="percent-hint"></p>
+    </div>
+  </form>
+
+  <section class="result" aria-live="polite">
+    <div class="caption" id="eyebrow"></div>
+    <div class="hero" id="hero">—</div>
+    <div id="info"></div>
+    <div id="warnings"></div>
+    <p><button type="button" class="secondary" id="copy">Copy</button></p>
+  </section>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, U = BM.units, R = BM.reagentMaker, $ = ui.$;
+  var form = $("#form");
+  var mode = function () { return $("input[name=mode]:checked").value; };
+  var basis = function () { return $("input[name=basis]:checked").value; };
+
+  ui.unitOptions($("#molarity-unit"), U.molar, "M");
+  ui.unitOptions($("#volume-unit"), U.volume, "mL");
+  ui.persist(form, "reagent-maker");
+
+  var result = null;
+  function render() {
+    var m = mode(), wv = basis() === "wv";
+    $("#molar-fields").hidden = m !== "molar";
+    $("#percent-fields").hidden = m !== "percent";
+    $("#amount-label").textContent = wv ? "Or known mass (solves percent)" : "Or known solute volume (solves percent)";
+    $("#amount-unit").textContent = wv ? "g" : "mL";
+    $("#percent-hint").textContent = "Leave Percent blank to solve for percent from a known " + (wv ? "mass" : "volume") + " instead.";
+
+    result = R.compute({
+      mode: m, molarity: $("#molarity").value, molarityUnit: $("#molarity-unit").value,
+      volume: $("#volume").value, volumeUnit: $("#volume-unit").value, mw: $("#mw").value,
+      basis: basis(), percent: $("#percent").value, percentVolume: $("#pvol").value, amount: $("#amount").value
+    });
+    $("#eyebrow").textContent = result.eyebrow;
+    $("#hero").innerHTML = result.hero ? ui.esc(result.hero.value) + " <small>" + ui.esc(result.hero.unit) + "</small>" : "—";
+    $("#info").innerHTML = result.kind ? "" : '<p class="empty">' +
+      (m === "molar" ? "Enter molarity, volume and molecular weight."
+        : "Enter percent (or mass/volume) and total volume") + "</p>";
+    ui.warnings($("#warnings"), result.warnings);
+    $("#copy").disabled = !result.kind;
+  }
+
+  ui.copyButton($("#copy"), function () {
+    if (!result || !result.kind) return "";
+    // Warnings travel with the recipe.
+    return [result.copyText].concat(result.warnings.map(function (w) { return "⚠ " + w.text; })).join("\n");
+  });
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cell counting · BenchMate</title>
+<meta name="description" content="Hemocytometer counts to cells/mL with viability, then the stock and media volumes to seed a target density or cells/cm² into wells and flasks.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  [hidden] { display: none !important; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .quad { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background:
+    linear-gradient(var(--line), var(--line)) 25% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--line), var(--line)) 50% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--line), var(--line)) 75% 0 / 1px 100% no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 25% / 100% 1px no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 75% / 100% 1px no-repeat; }
+  .quad strong { display: block; font-size: 15px; margin-bottom: 4px; }
+  .quad label { display: block; font-size: 13px; color: var(--muted); }
+  .quad input { margin-bottom: 4px; background: var(--card); }
+  .unit { align-self: center; color: var(--muted); }
+  .stock { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Cell counting</h1>
+  <p class="lede">Count on a hemocytometer, then work out what to seed.</p>
+
+  <form id="form" autocomplete="off">
+    <h2>Count</h2>
+    <div class="card">
+      <div class="segments" role="radiogroup" aria-label="Count entry mode">
+        <label><input type="radio" name="mode" value="squares" id="mode-squares" checked>Squares</label>
+        <label><input type="radio" name="mode" value="average" id="mode-average">Average</label>
+        <label><input type="radio" name="mode" value="counter" id="mode-counter">Counter</label>
+      </div>
+      <div class="segments" role="radiogroup" aria-label="Stain">
+        <label><input type="radio" name="stain" value="trypanBlue" id="stain-trypanBlue" checked>Trypan blue</label>
+        <label><input type="radio" name="stain" value="aoPI" id="stain-aoPI">AO/PI</label>
+        <label><input type="radio" name="stain" value="unstained" id="stain-unstained">No stain</label>
+      </div>
+
+      <div id="panel-squares">
+        <p class="hint" style="margin:0 0 8px">The four large corner squares. Leave a square blank to skip it; the average uses only counted squares.</p>
+        <div class="grid">
+          <div class="quad"><strong>Q1</strong><label for="q1-live" data-live>live</label><input id="q1-live" inputmode="numeric" placeholder="0"><label for="q1-dead" data-dead>dead (blue)</label><input id="q1-dead" inputmode="numeric" placeholder="0"></div>
+          <div class="quad"><strong>Q2</strong><label for="q2-live" data-live>live</label><input id="q2-live" inputmode="numeric" placeholder="0"><label for="q2-dead" data-dead>dead (blue)</label><input id="q2-dead" inputmode="numeric" placeholder="0"></div>
+          <div class="quad"><strong>Q3</strong><label for="q3-live" data-live>live</label><input id="q3-live" inputmode="numeric" placeholder="0"><label for="q3-dead" data-dead>dead (blue)</label><input id="q3-dead" inputmode="numeric" placeholder="0"></div>
+          <div class="quad"><strong>Q4</strong><label for="q4-live" data-live>live</label><input id="q4-live" inputmode="numeric" placeholder="0"><label for="q4-dead" data-dead>dead (blue)</label><input id="q4-dead" inputmode="numeric" placeholder="0"></div>
+        </div>
+        <p><button type="button" class="secondary" id="clear-squares">Clear squares</button></p>
+      </div>
+
+      <div id="panel-average" hidden>
+        <div class="field">
+          <label for="average">Average count per square (live + dead)</label>
+          <input id="average" inputmode="decimal" placeholder="e.g. 24" value="100">
+          <p class="hint">Total cells per large square. With a viability below, it is split into live and dead and seeding uses the live part.</p>
+        </div>
+      </div>
+
+      <div id="panel-counter" hidden>
+        <div class="field">
+          <label for="counter">Live cells</label>
+          <div class="row"><input id="counter" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 2400000"><span class="unit">cells/mL</span></div>
+        </div>
+      </div>
+
+      <div class="field" id="viability-field" hidden>
+        <label for="viability" id="viability-label">Viability (optional)</label>
+        <div class="row"><input id="viability" inputmode="decimal" placeholder="e.g. 92"><span class="unit">%</span></div>
+      </div>
+
+      <div class="field" id="dilution-field">
+        <label for="dilution">Dilution factor</label>
+        <div class="row"><input id="dilution" inputmode="decimal" placeholder="e.g. 2" value="2"><span class="unit">×</span></div>
+      </div>
+    </div>
+
+    <section class="result" aria-live="polite">
+      <div class="caption" id="d-eyebrow">Cell density</div>
+      <div class="hero" id="d-hero">—</div>
+      <div id="d-body"></div>
+      <div id="d-warnings"></div>
+    </section>
+
+    <h2>Seeding</h2>
+    <div class="card">
+      <div class="segments" role="radiogroup" aria-label="Stock density source">
+        <label><input type="radio" name="source" value="measured" id="source-measured" checked>From count</label>
+        <label><input type="radio" name="source" value="manual" id="source-manual">Manual</label>
+      </div>
+      <div class="field" id="stock-measured">
+        <div class="label">Stock density</div>
+        <div class="stock"><span id="stock-text">Enter count above</span><span class="hint" id="stock-grouped" style="margin:0"></span></div>
+      </div>
+      <div class="field" id="stock-manual" hidden>
+        <label for="manual-stock">Stock density</label>
+        <div class="row"><input id="manual-stock" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 2000000"><span class="unit">cells/mL</span></div>
+      </div>
+
+      <div class="segments" role="radiogroup" aria-label="Seeding target type">
+        <label><input type="radio" name="target" value="densityVolume" id="target-densityVolume" checked>Density × Volume</label>
+        <label><input type="radio" name="target" value="densityArea" id="target-densityArea">Density × Area</label>
+      </div>
+      <div class="field" id="target-vol-field">
+        <label for="target-density">Target density</label>
+        <div class="row"><input id="target-density" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 100000" value="100000"><span class="unit">cells/mL</span></div>
+      </div>
+      <div id="target-area-fields" hidden>
+        <div class="field">
+          <label for="target-cm2">Target density</label>
+          <div class="row"><input id="target-cm2" data-sci data-sci-unit="cells/cm²" inputmode="decimal" placeholder="e.g. 20000"><span class="unit">cells/cm²</span></div>
+        </div>
+        <div class="field">
+          <label for="vessel">Vessel</label>
+          <select id="vessel" aria-label="Growth vessel"></select>
+        </div>
+        <div class="field">
+          <label for="vessel-count" id="vessel-count-label">Number of wells</label>
+          <input id="vessel-count" inputmode="numeric" placeholder="e.g. 6" value="1">
+        </div>
+      </div>
+      <div class="field">
+        <label for="volume" id="volume-label">Plating volume</label>
+        <div class="row"><input id="volume" inputmode="decimal" placeholder="e.g. 10" value="10"><span class="unit">mL</span></div>
+      </div>
+    </div>
+
+    <section class="result" aria-live="polite">
+      <div class="caption">Seeding recipe</div>
+      <div class="hero" id="s-hero">—</div>
+      <div id="s-body"></div>
+      <div id="s-warnings"></div>
+      <p><button type="button" class="secondary" id="copy">Copy</button></p>
+    </section>
+  </form>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, C = BM.cellCounting, $ = ui.$;
+  var form = $("#form");
+  function val(id) { return $("#" + id).value; }
+  function radio(name) { return $("input[name=" + name + "]:checked").value; }
+
+  $("#vessel").innerHTML = C.VESSELS.map(function (v) {
+    return '<option value="' + v.id + '">' + v.label + " (" + C.formatArea(v.areaCm2) + " cm²)</option>";
+  }).join("");
+
+  ui.persist(form, "cell-counting");
+  var lastStain = radio("stain");   // after persist, so a restored stain isn't treated as a change
+
+  function state() {
+    var squares = [1, 2, 3, 4].map(function (i) { return { live: val("q" + i + "-live"), dead: val("q" + i + "-dead") }; });
+    return {
+      mode: radio("mode"), stain: radio("stain"), squares: squares,
+      average: val("average"), viability: val("viability"), counter: val("counter"), dilution: val("dilution"),
+      source: radio("source"), manualStock: val("manual-stock"), targetMode: radio("target"),
+      targetDensity: val("target-density"), targetPerCm2: val("target-cm2"), vessel: val("vessel"),
+      volume: val("volume"), vesselCount: val("vessel-count")
+    };
+  }
+
+  var copyText = "";
+  function render() {
+    // The stain sets the dilution factor unless one of your own is typed.
+    var stain = radio("stain");
+    if (stain !== lastStain) {
+      $("#dilution").value = C.factorTextAfterStainChange(lastStain, stain, val("dilution"));
+      lastStain = stain;
+      form.dispatchEvent(new Event("input", { bubbles: true }));   // so the new factor is saved too
+    }
+    var s = state(), mode = s.mode, st = C.STAINS[s.stain];
+    $("#panel-squares").hidden = mode !== "squares";
+    $("#panel-average").hidden = mode !== "average";
+    $("#panel-counter").hidden = mode !== "counter";
+    $("#viability-field").hidden = mode === "squares";
+    $("#dilution-field").hidden = mode === "counter";
+    $("#viability-label").textContent = mode === "counter" ? "Viability" : "Viability (optional)";
+    [1, 2, 3, 4].forEach(function (i) {
+      $("label[for=q" + i + "-live]").textContent = st.liveWord;
+      $("label[for=q" + i + "-dead]").textContent = st.deadWord;
+    });
+    $("#clear-squares").disabled = !s.squares.some(function (q) { return q.live.trim() || q.dead.trim(); });
+
+    var area = s.targetMode === "densityArea", v = C.vessel(s.vessel);
+    $("#stock-measured").hidden = s.source !== "measured";
+    $("#stock-manual").hidden = s.source !== "manual";
+    $("#target-vol-field").hidden = area;
+    $("#target-area-fields").hidden = !area;
+    $("#vessel-count-label").textContent = "Number of " + v.noun + "s";
+    $("#volume-label").textContent = area ? "Volume per " + v.noun : "Plating volume";
+
+    var r = C.compute(s);
+    var sum = r.count.summary;
+    $("#d-eyebrow").textContent = sum && sum.viability != null ? "Viable cell density" : "Cell density";
+    $("#d-hero").innerHTML = sum ? ui.esc(BM.format.scientific(sum.viableDensity)) + " <small>cells/mL</small>" : "—";
+    var lines = C.densityLines(s, r.count);
+    if (!sum && !r.count.viabilityInvalid) {
+      lines = [{ squares: "Count at least one square and set the dilution factor", average: "Enter count and dilution factor", counter: "Enter the counter's live density" }[mode]];
+      $("#d-body").innerHTML = '<p class="empty">' + ui.esc(lines[0]) + "</p>";
+    } else {
+      $("#d-body").innerHTML = lines.length ? '<p class="hint">' + lines.map(ui.esc).join("<br>") + "</p>" : "";
+    }
+    ui.warnings($("#d-warnings"), r.densityWarnings);
+
+    var measured = sum ? sum.viableDensity : null;
+    $("#stock-text").textContent = measured != null ? BM.format.scientific(measured) + " cells/mL" : "Enter count above";
+    $("#stock-grouped").textContent = measured != null ? BM.format.grouped(measured) : "";
+
+    var res = r.seeding.result;
+    if (res && res.ok) {
+      var p = res.plan, stock = C.volumeMLParts(p.stockVolume);
+      $("#s-hero").innerHTML = ui.esc(stock.value) + " <small>" + ui.esc(stock.unit) + " stock</small>";
+      var b = ["+ " + C.volumeML(p.mediaVolume) + " media → " + C.volumeML(p.stockVolume + p.mediaVolume) + " total, " + BM.format.scientific(p.cellsNeeded) + " cells"];
+      var split = C.vesselSplitText(s, p, r.seeding.vesselsSeeded);
+      if (split) b.push(split);
+      $("#s-body").innerHTML = '<p class="hint">' + b.map(ui.esc).join("<br>") + "</p>";
+    } else {
+      $("#s-hero").textContent = "—";
+      var msg = res ? "" : (area && r.seeding.vesselsSeeded == null
+        ? "Enter how many " + v.noun + "s, as a whole number"
+        : "Enter stock density and target above");
+      $("#s-body").innerHTML = msg ? '<p class="empty">' + ui.esc(msg) + "</p>" : "";
+    }
+    ui.warnings($("#s-warnings"), r.seedingWarnings);
+    copyText = r.copyText;
+    $("#copy").disabled = !copyText;
+  }
+
+  $("#clear-squares").addEventListener("click", function () {
+    [1, 2, 3, 4].forEach(function (i) { $("#q" + i + "-live").value = ""; $("#q" + i + "-dead").value = ""; });
+    form.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  ui.copyButton($("#copy"), function () { return copyText; });
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

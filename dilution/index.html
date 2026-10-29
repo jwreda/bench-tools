@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dilution · BenchMate</title>
+<meta name="description" content="C₁V₁ = C₂V₂ dilution calculator: solve any one of stock concentration, stock volume, final concentration or final volume, molar or mass, with a molecular weight to mix the two.">
+<link rel="stylesheet" href="../assets/bench.css">
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Dilution</h1>
+  <p class="lede">C₁V₁ = C₂V₂. Pick the field to solve, fill in the other three.</p>
+
+  <form id="form" class="card" autocomplete="off">
+    <div class="segments" role="radiogroup" aria-label="Concentration type">
+      <label><input type="radio" name="mode" value="molar" id="mode-molar" checked>Molar</label>
+      <label><input type="radio" name="mode" value="mass" id="mode-mass">Mass/Vol</label>
+      <label><input type="radio" name="mode" value="mixed" id="mode-mixed">Mixed</label>
+    </div>
+
+    <div class="field" id="mw-field" hidden>
+      <label for="mw">Molecular weight</label>
+      <div class="row"><input id="mw" data-sci data-sci-unit="g/mol" inputmode="decimal" placeholder="needed to convert"><span class="hint" style="align-self:center">g/mol</span></div>
+    </div>
+
+    <!-- One block per field; the script fills the unit pickers. -->
+    <div class="field" data-field="c1">
+      <label for="c1">Stock C₁</label>
+      <div class="row"><input id="c1" inputmode="decimal" value="10"><select id="c1-unit" aria-label="Stock concentration unit"></select></div>
+      <label class="check"><input type="radio" name="solve" value="c1" id="solve-c1">Solve for this</label>
+    </div>
+    <div class="field" data-field="v1">
+      <label for="v1">Stock V₁</label>
+      <div class="row"><input id="v1" inputmode="decimal"><select id="v1-unit" aria-label="Stock volume unit"></select></div>
+      <label class="check"><input type="radio" name="solve" value="v1" id="solve-v1" checked>Solve for this</label>
+    </div>
+    <div class="field" data-field="c2">
+      <label for="c2">Final C₂</label>
+      <div class="row"><input id="c2" inputmode="decimal" value="50"><select id="c2-unit" aria-label="Final concentration unit"></select></div>
+      <label class="check"><input type="radio" name="solve" value="c2" id="solve-c2">Solve for this</label>
+    </div>
+    <div class="field" data-field="v2">
+      <label for="v2">Final V₂</label>
+      <div class="row"><input id="v2" inputmode="decimal" value="10"><select id="v2-unit" aria-label="Final volume unit"></select></div>
+      <label class="check"><input type="radio" name="solve" value="v2" id="solve-v2">Solve for this</label>
+    </div>
+  </form>
+
+  <section class="result" aria-live="polite">
+    <div class="caption" id="eyebrow"></div>
+    <div class="hero" id="hero">—</div>
+    <div id="body"></div>
+    <div id="warnings"></div>
+    <p><button type="button" class="secondary" id="copy">Copy recipe</button></p>
+  </section>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, U = BM.units, D = BM.dilution, $ = ui.$;
+  var form = $("#form");
+  var FIELDS = ["c1", "v1", "c2", "v2"];
+  var seeds = {};
+  // Units each concentration picker remembers per mode, so switching tabs doesn't scramble them.
+  var concUnits = {
+    molar: { c1: "mM", c2: "uM" },
+    mass: { c1: "mgPerML", c2: "mgPerML" },
+    mixed: { c1: "mgPerML", c2: "uM" }
+  };
+  var mode = function () { return $("input[name=mode]:checked").value; };
+  var solving = function () { return $("input[name=solve]:checked").value; };
+  var lastMode = null;
+
+  function fillConcPickers() {
+    var m = mode();
+    ["c1", "c2"].forEach(function (f) {
+      var sel = $("#" + f + "-unit");
+      if (m === "mixed") {
+        // Both lists in one picker: choosing a unit also chooses molar vs mass.
+        sel.innerHTML =
+          '<optgroup label="Molar">' + U.molar.list.map(opt).join("") + "</optgroup>" +
+          '<optgroup label="Mass/Vol">' + U.massConc.list.map(opt).join("") + "</optgroup>";
+      } else {
+        ui.unitOptions(sel, m === "molar" ? U.molar : U.massConc);
+      }
+      sel.value = concUnits[m][f];
+    });
+    function opt(u) { return '<option value="' + u.id + '">' + u.label + "</option>"; }
+  }
+
+  function state() {
+    var text = {}, units = {};
+    FIELDS.forEach(function (f) { text[f] = $("#" + f).value; units[f] = $("#" + f + "-unit").value; });
+    return { mode: mode(), solvingFor: solving(), text: text, units: units, mw: $("#mw").value, seeds: seeds };
+  }
+
+  var result = null, lastSolving = null;
+  function render() {
+    var m = mode();
+    // Moving the solved field hands the old answer back to its input at full precision.
+    if (lastSolving && solving() !== lastSolving) {
+      var before = state();
+      before.solvingFor = lastSolving;
+      var next = D.solveFor(before, solving());
+      seeds = next.seeds;
+      FIELDS.forEach(function (f) { if (f !== next.solvingFor) $("#" + f).value = next.text[f]; });
+    }
+    lastSolving = solving();
+    if (m !== lastMode) { lastMode = m; fillConcPickers(); }
+    concUnits[m].c1 = $("#c1-unit").value;
+    concUnits[m].c2 = $("#c2-unit").value;
+
+    var s = state();
+    result = D.compute(s);
+    $("#mw-field").hidden = m !== "mixed";
+    $("#mw").placeholder = result.needsMW ? "needed to convert" : "optional";
+
+    FIELDS.forEach(function (f) {
+      var input = $("#" + f), solved = f === s.solvingFor;
+      input.readOnly = solved;
+      input.classList.toggle("solved", solved);
+      if (solved) input.value = result.solvedText;
+    });
+
+    $("#eyebrow").textContent = "Solving for " + D.LABELS[s.solvingFor];
+    $("#hero").innerHTML = result.hero
+      ? ui.esc(result.hero.value) + " <small>" + ui.esc(result.hero.unit) + "</small>"
+      : "—";
+    var html = "";
+    if (result.steps) {
+      html += '<table class="recipe">' + result.steps.map(function (st) {
+        return "<tr><td>" + (st.emphasized ? "<strong>" + st.title + "</strong>" : st.title) +
+          '</td><td class="num">' + ui.esc(st.value) + "</td></tr>";
+      }).join("") + "</table>";
+    } else if (result.recipe) {
+      html += "<p>" + ui.esc(result.recipe) + "</p>";
+    } else {
+      html += '<p class="empty">' + ui.esc(result.prompt) + "</p>";
+    }
+    if (result.conversions.length) {
+      html += '<p class="hint">' + result.conversions.map(ui.esc).join("<br>") + "</p>";
+    }
+    $("#body").innerHTML = html;
+    ui.warnings($("#warnings"), result.warnings);
+    $("#copy").disabled = !result.recipe;
+  }
+
+  ["v1", "v2"].forEach(function (f) { ui.unitOptions($("#" + f + "-unit"), U.volume, f === "v1" ? "uL" : "mL"); });
+  ui.copyButton($("#copy"), function () {
+    if (!result || !result.recipe) return "";
+    var lines = ["Dilution: " + D.SYMBOLS[solving()] + " " + result.hero.value + " " + result.hero.unit, result.recipe];
+    if (result.needsMW) lines.push("MW " + $("#mw").value + " g/mol");
+    // Warnings travel with the recipe (the app's copy drops them; deep review P1).
+    result.warnings.forEach(function (w) { lines.push((w.level === "error" ? "✕ " : "⚠ ") + w.text); });
+    return lines.join("\n");
+  });
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>
