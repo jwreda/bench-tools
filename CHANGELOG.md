@@ -3,6 +3,14 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.7 — 2026-10-29
+
+- Ticked boxes now fill with solid wisteria and show a white tick, the same in every browser,
+  including the step lists in Magnetic sort and CellTrace. Empty boxes look as before. Done steps
+  in the OT-I + OT-II run table match.
+- A new release shows up straight away: pages now load their stylesheet and scripts with the
+  release's commit in the link, so a browser can't keep using the previous deploy's files.
+
 ## 1.3.6 — 2026-10-29
 
 - The hemocytometer squares (Cell counting, and "Count on a hemocytometer" in Count samples) now
