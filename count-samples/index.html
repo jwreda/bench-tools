@@ -246,16 +246,36 @@
           P.dilutionText(r.dilutionFactor), P.detailText(st, i, r)];
         var wp = byWells && P.wellTarget(st, i).plan;
         if (wp) lines.push(CC.wellMixText(wp), CC.wellPlateText(wp));
-        body.innerHTML = '<p class="hint">' + lines.map(ui.esc).join("<br>") + "</p>";
+        draw(body, '<p class="hint">' + lines.map(ui.esc).join("<br>") + "</p>");
       } else {
         hero.textContent = "—";
         var wt = byWells ? P.wellTarget(st, i) : null;
-        body.innerHTML = res || (wt && wt.overageInvalid) ? "" : '<p class="empty">' + (d == null ? "Count this sample first"
-          : byWells ? "Enter wells (a whole number), cells and volume per well" : "Enter final volume and seeding amount") + "</p>";
+        // What's missing, and a button that takes you to the field to fill in.
+        var go = d == null ? { id: "dens-" + i, label: "Go to the count" } : { id: missingTargetField(i), label: "Go to the target" };
+        draw(body, res || (wt && wt.overageInvalid) ? "" : '<p class="empty">' + (d == null ? "Count this sample first"
+          : byWells ? "Enter wells (a whole number), cells and volume per well" : "Enter final volume and seeding amount") + "</p>" +
+          (go.id ? '<p><button type="button" class="secondary" data-focus="' + go.id + '">' + go.label + "</button></p>" : ""));
       }
       ui.warnings($("[data-warn='" + i + "']"), P.sampleWarnings(st, i));
     });
     $("#copy").disabled = P.countedSamples(st) === 0;
+  }
+
+  // Only redraw when it changes: tapping a button blurs the field being typed in, and redrawing
+  // on that change would swap the button out from under the tap.
+  function draw(el, html) {
+    if (el.drawn !== html) { el.innerHTML = html; el.drawn = html; }
+  }
+
+  /** The first target field for sample i that is blank or doesn't read as a number above zero. */
+  function missingTargetField(i) {
+    var box = st.sameTarget ? $("#shared-target").parentNode : $("[data-target='" + i + "']");
+    var fields = ui.$$("input[inputmode]", box).filter(function (el) { return el.id !== "overage" && el.getClientRects().length > 0; });
+    var bad = fields.filter(function (el) {
+      var v = BM.format.parse(el.value);
+      return v == null || !(v > 0) || (el.inputMode === "numeric" && v !== Math.round(v));   // wells: whole numbers
+    })[0];
+    return bad ? bad.id : fields.length ? fields[0].id : null;
   }
 
   function chipState(box, volText) {
@@ -283,7 +303,14 @@
   form.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("button");
     if (!b) return;
-    if (b.hasAttribute("data-chip")) {
+    if (b.hasAttribute("data-focus")) {
+      var field = $("#" + b.getAttribute("data-focus"));
+      if (field) {
+        var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        field.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+        field.focus({ preventScroll: true });
+      }
+    } else if (b.hasAttribute("data-chip")) {
       var key = b.getAttribute("data-chip"), ml = b.getAttribute("data-ml");
       var input = key === "shared" ? $("#shared-volume") : $("#vol-" + key);
       if (ml !== "") {
