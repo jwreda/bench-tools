@@ -9,7 +9,7 @@ changes stay consistent.
 - Elegant, restrained, professional: a well-made lab notebook, not a product launch.
 - Warm, never stark. Paper `#fefdfb` / warm near-black `#1f1c1a`, brown-leaning neutrals,
   caramel-tinted shadows.
-- **Wisteria** carries the emphasis (since 1.3.1, Joe's call): links, selected segments,
+- **Wisteria** carries the emphasis (since 1.3.2, Joe's call): links, selected segments,
   checked boxes, focus rings, secondary buttons, the faintly wisteria answer card and solved
   fields, plus the page wash behind each title and the frosted hover glass. This goes further
   than the site, where wisteria is kept for special moments; in a calculator the emphasis is
