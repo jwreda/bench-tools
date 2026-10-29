@@ -16,17 +16,6 @@
 <link rel="stylesheet" href="../assets/bench.css">
 <style>
   [hidden] { display: none !important; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
-  .quad { border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px; background:
-    linear-gradient(var(--border-strong), var(--border-strong)) 25% 0 / 1px 100% no-repeat,
-    linear-gradient(var(--border-strong), var(--border-strong)) 50% 0 / 1px 100% no-repeat,
-    linear-gradient(var(--border-strong), var(--border-strong)) 75% 0 / 1px 100% no-repeat,
-    linear-gradient(var(--border-strong), var(--border-strong)) 0 25% / 100% 1px no-repeat,
-    linear-gradient(var(--border-strong), var(--border-strong)) 0 50% / 100% 1px no-repeat,
-    linear-gradient(var(--border-strong), var(--border-strong)) 0 75% / 100% 1px no-repeat; }
-  .quad strong { display: block; font-size: 15px; margin-bottom: 4px; }
-  .quad label { display: block; font-size: 13px; color: var(--text-3); }
-  .quad input { margin-bottom: 4px; background: var(--surface); }
   .unit { align-self: center; color: var(--text-3); }
   .stock { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg); }
 </style>
@@ -65,7 +54,7 @@
 
       <div id="panel-squares">
         <p class="hint" style="margin:0 0 8px">The four large corner squares. Leave a square blank to skip it; the average uses only counted squares.</p>
-        <div class="grid">
+        <div class="quads">
           <div class="quad"><strong>Q1</strong><label for="q1-live" data-live>live</label><input id="q1-live" inputmode="numeric" placeholder="0"><label for="q1-dead" data-dead>dead (blue)</label><input id="q1-dead" inputmode="numeric" placeholder="0"></div>
           <div class="quad"><strong>Q2</strong><label for="q2-live" data-live>live</label><input id="q2-live" inputmode="numeric" placeholder="0"><label for="q2-dead" data-dead>dead (blue)</label><input id="q2-dead" inputmode="numeric" placeholder="0"></div>
           <div class="quad"><strong>Q3</strong><label for="q3-live" data-live>live</label><input id="q3-live" inputmode="numeric" placeholder="0"><label for="q3-dead" data-dead>dead (blue)</label><input id="q3-dead" inputmode="numeric" placeholder="0"></div>

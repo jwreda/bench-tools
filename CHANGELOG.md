@@ -3,6 +3,14 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.3 — 2026-10-29
+
+- Transfection: when the summary says what's missing ("Enter the stock for pLuc", a ratio part,
+  a size, the culture volume, flasks or the seeding density), a button takes you to that field.
+- Count samples: "Count on a hemocytometer" under each sample now has the four corner squares from
+  Cell counting (live and dead per square, with the stain and dilution), or an average. The
+  density reads back as you count, and "Use this count" fills in the live cells and viability.
+
 ## 1.3.1 — 2026-10-29
 
 - Count samples: where a recipe says "Count this sample first" or asks for the target, a button

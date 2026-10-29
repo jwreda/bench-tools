@@ -163,25 +163,30 @@
   }
 
   // ---------------------------------------------------------------- why there's no plan
-  /** [{ message, runID }] in order; the first is what the empty card says. */
+  /**
+   * [{ message, runID, field }] in order; the first is what the empty card says. field names the
+   * input to fill in: { runID, rowID (a plasmid row, or null), f (its data-f: culture, flasks,
+   * stock, part, size) }.
+   */
   function runBlockers(runs, sep) {
     var many = runs.length > 1, out = [];
     runs.forEach(function (run) {
       var of = many ? " of " + runDisplayName(run, runs) : "";
       var forRun = many ? " for " + runDisplayName(run, runs) : "";
       var c = num(run.cultureText, sep);
-      if (c == null || c <= 0) { out.push({ message: "Enter the culture volume" + forRun + ".", runID: run.id }); return; }
+      var field = function (f, row) { return { runID: run.id, rowID: row ? row.id : null, f: f }; };
+      if (c == null || c <= 0) { out.push({ message: "Enter the culture volume" + forRun + ".", runID: run.id, field: field("culture") }); return; }
       if (flaskCount(run.flaskText, sep) == null) {
-        out.push({ message: "Flasks" + of + " must be a whole number from " + FLASK_RANGE.min + " to " + FLASK_RANGE.max + ".", runID: run.id }); return;
+        out.push({ message: "Flasks" + of + " must be a whole number from " + FLASK_RANGE.min + " to " + FLASK_RANGE.max + ".", runID: run.id, field: field("flasks") }); return;
       }
       var noStock = run.plasmids.filter(function (r) { var s = num(r.stockText, sep); return s == null || s <= 0; })[0];
-      if (noStock) { out.push({ message: "Enter the stock for " + blankName(noStock, run) + of + ".", runID: run.id }); return; }
+      if (noStock) { out.push({ message: "Enter the stock for " + blankName(noStock, run) + of + ".", runID: run.id, field: field("stock", noStock) }); return; }
       if (run.plasmids.length > 1) {
         var noPart = run.plasmids.filter(function (r) { var p = num(r.partText, sep); return p == null || p < 0; })[0];
-        if (noPart) { out.push({ message: "Enter a ratio part for " + blankName(noPart, run) + of + ".", runID: run.id }); return; }
+        if (noPart) { out.push({ message: "Enter a ratio part for " + blankName(noPart, run) + of + ".", runID: run.id, field: field("part", noPart) }); return; }
         if (run.ratioBasis === "molar") {
           var noSize = run.plasmids.filter(function (r) { return sizeBP(r.sizeText, sep) == null; })[0];
-          if (noSize) { out.push({ message: "Molar ratios need a size (bp) for " + blankName(noSize, run) + of + ".", runID: run.id }); return; }
+          if (noSize) { out.push({ message: "Molar ratios need a size (bp) for " + blankName(noSize, run) + of + ".", runID: run.id, field: field("size", noSize) }); return; }
         }
       }
     });
@@ -192,7 +197,8 @@
    * Everything the page shows, from the fields. raw = {
    *   defaults: settingsFrom's raw, sourceMillions, runs: [run drafts] }.
    * Returns { settings, usable, seedingDensity, sourceDensity, sourceDensityInvalid, runInputs, batch, recipe,
-   *   message (why there's no plan, or null), warnings, isBatch }.
+   *   message (why there's no plan, or null), messageField (the field to fill in for it: a
+   *   runBlockers field, { id: "seeding" }, or null), warnings, isBatch }.
    */
   function compute(raw, sep) {
     var settings = settingsFrom(raw.defaults, sep);
@@ -204,7 +210,7 @@
     var sourceInvalid = trim(raw.sourceMillions) !== "" && sourceDensity == null;
     var out = {
       settings: settings, usable: usable, seedingDensity: seeding, sourceDensity: sourceDensity,
-      sourceDensityInvalid: sourceInvalid, runInputs: [], batch: null, recipe: null, message: null, warnings: [],
+      sourceDensityInvalid: sourceInvalid, runInputs: [], batch: null, recipe: null, message: null, messageField: null, warnings: [],
       isBatch: runs.length > 1 || runs.some(function (r) { return flaskCount(r.flaskText, sep) !== 1; })
     };
     if (sourceInvalid) {
@@ -227,9 +233,11 @@
       out.message = "Check the defaults: DNA dose, PEI : DNA, PEI stock and mix volume must be above zero.";
     } else if (seeding == null) {
       out.message = "Enter the seeding density.";
+      out.messageField = { id: "seeding" };
     } else {
       var first = runBlockers(runs, sep)[0];
       out.message = first ? first.message : "Check the defaults and plasmids.";
+      out.messageField = first ? first.field : null;
     }
     return out;
   }
