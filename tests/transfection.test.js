@@ -1457,3 +1457,27 @@ test("model: settingsFrom reads the incubation and keeps the lab value for nonse
   assert.equal(M.settingsFrom(Object.assign(defaultsRaw(), { excessPct: 7 }), ".").excess, 0);
   assert.equal(M.settingsFrom(Object.assign(defaultsRaw(), { excessPct: 10 }), ".").excess, 10);
 });
+
+// ---- web only: the field the "why there's no recipe" message points at
+
+test("model: the message names the field to fill in", () => {
+  const raw = rawExample();
+  const [r1, r2] = raw.runs;
+  r2.plasmids[1].stockText = "";
+  let r = compute(raw);
+  assert.match(r.message, /Enter the stock for pLuc of Reporter/);
+  assert.deepEqual(r.messageField, { runID: r2.id, rowID: r2.plasmids[1].id, f: "stock" });
+  r2.plasmids[1].stockText = "2000"; r2.plasmids[0].partText = "";
+  assert.deepEqual(compute(raw).messageField, { runID: r2.id, rowID: r2.plasmids[0].id, f: "part" });
+  r2.plasmids[0].partText = "1"; r2.ratioBasis = "molar";
+  assert.deepEqual(compute(raw).messageField, { runID: r2.id, rowID: r2.plasmids[0].id, f: "size" });
+  r1.flaskText = "0";
+  assert.deepEqual(compute(raw).messageField, { runID: r1.id, rowID: null, f: "flasks" });
+  r1.cultureText = "";
+  assert.deepEqual(compute(raw).messageField, { runID: r1.id, rowID: null, f: "culture" });
+  raw.defaults.seedingMillions = "";
+  r = compute(raw);
+  assert.equal(r.message, "Enter the seeding density.");
+  assert.deepEqual(r.messageField, { id: "seeding" });
+  assert.equal(compute(rawExample()).messageField, null);
+});

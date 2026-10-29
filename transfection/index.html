@@ -511,7 +511,10 @@
       $("#recipe-body").innerHTML = "";
       $("#headline").textContent = "";
       $("#hero").textContent = "—";
-      $("#summary-body").innerHTML = '<p class="empty">' + esc(r.message || "") + "</p>";
+      // Why there's no recipe, and a button that takes you to the field to fill in.
+      draw($("#summary-body"), '<p class="empty">' + esc(r.message || "") + "</p>" + (r.messageField
+        ? '<p><button type="button" class="secondary" data-go-field="' + esc(JSON.stringify(r.messageField)) + '">' +
+          (r.messageField.rowID ? "Go to the plasmid" : "Go to the field") + "</button></p>" : ""));
     } else {
       var rep = r.isBatch ? null : singleReport(r);
       $("#recipe-body").innerHTML = recipeHTML(r);
@@ -520,11 +523,36 @@
       var parts = hero.split(" ");
       $("#hero").innerHTML = esc(parts[0]) + " <small>" + esc(parts.slice(1).join(" ")) + " of DNA</small>";
       $("#summary-body").innerHTML = summaryHTML(r, rep);
+      $("#summary-body").drawn = null;
       syncTicks();
       updateTimer();
     }
     saveRuns();
   }
+
+  // Only redraw when it changes: tapping a button blurs the field being typed in, and redrawing
+  // on that change would swap the button out from under the tap.
+  function draw(el, html) {
+    if (el.drawn !== html) { el.innerHTML = html; el.drawn = html; }
+  }
+
+  /** The input a model messageField names, or null. */
+  function fieldInput(t) {
+    if (t.id) return document.getElementById(t.id);
+    var run = ui.$$("#runs .run").filter(function (el) { return el.getAttribute("data-run") === t.runID; })[0];
+    var row = run && t.rowID ? ui.$$(".plasmid", run).filter(function (el) { return el.getAttribute("data-p") === t.rowID; })[0] : run;
+    return row ? row.querySelector('[data-f="' + t.f + '"]') : null;
+  }
+  $("#summary").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-go-field]");
+    if (!b) return;
+    var input = fieldInput(JSON.parse(b.getAttribute("data-go-field")));
+    if (!input) return;
+    for (var d = input.closest("details"); d; d = d.parentNode.closest && d.parentNode.closest("details")) d.open = true;
+    var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    input.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+    input.focus({ preventScroll: true });
+  });
 
   // ------------------------------------------------------------ ticks and the incubation timer
   function syncTicks() {
