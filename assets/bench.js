@@ -16,7 +16,7 @@
    * vX.Y.Z; the deploy keeps every tagged release live at /vX.Y.Z/ and flips FROZEN to true
    * in those copies so their pages say they're an archived version.
    */
-  BM.VERSION = "1.0.0";
+  BM.VERSION = "1.1.0";
   BM.FROZEN = false;
 
   // ---------------------------------------------------------------- units
@@ -389,6 +389,55 @@
       ' · <a href="' + site + 'versions.html">Past versions and changes</a>';
     main.appendChild(foot);
   };
+
+  // ---------------------------------------------------------------- theme and reveals
+  /**
+   * Light/dark toggle. With no choice saved the page follows the system setting; the
+   * inline script in each page's <head> applies a saved choice before first paint.
+   */
+  ui.toggleTheme = function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme
+      ? root.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) { /* ignore */ }
+    ui.syncThemeToggle();
+  };
+  ui.syncThemeToggle = function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme
+      ? root.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    ui.$$("[data-theme-toggle]").forEach(function (b) {
+      b.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    });
+  };
+
+  /** Blur-in once as each .reveal element scrolls into view (home lists only). */
+  ui.reveals = function () {
+    var els = ui.$$(".reveal");
+    if (!("IntersectionObserver" in window)) {
+      els.forEach(function (el) { el.classList.add("visible"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("visible");
+        io.unobserve(e.target);
+      });
+    }, { threshold: 0.2, rootMargin: "0px 0px -50px 0px" });
+    els.forEach(function (el) { io.observe(el); });
+  };
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-theme-toggle]")) ui.toggleTheme();
+    });
+    document.addEventListener("DOMContentLoaded", ui.syncThemeToggle);
+    document.addEventListener("DOMContentLoaded", ui.reveals);
+  }
 
   if (typeof document !== "undefined") {
     document.addEventListener("DOMContentLoaded", ui.appPromo);

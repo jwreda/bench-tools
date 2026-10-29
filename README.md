@@ -23,7 +23,7 @@ Build locally with `node scripts/build-site.mjs` (writes `_site/`).
 ```
 /
   index.html            list of tools + "Get the app" note
-  assets/bench.css      the one stylesheet
+  assets/bench.css      the one stylesheet (design rules: docs/style-guide.md)
   assets/bench.js       shared helpers: number parsing/formatting, units, page helpers (global BM)
   <tool>/index.html     the page: markup + a short script that reads fields and draws results
   <tool>/engine.js      the math, ported from the app's Swift; pure functions, no DOM

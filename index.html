@@ -5,28 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BenchMate tools</title>
 <meta name="description" content="Free lab calculators from BenchMate: dilution, concentration, serial dilution, reagent maker, cell counting and protocol helpers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap">
+<script>
+  // Before first paint: a saved light/dark choice (none = follow the system), and reveals on.
+  document.documentElement.classList.add("js");
+  try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <link rel="stylesheet" href="assets/bench.css">
 </head>
 <body>
-<main>
-  <h1>BenchMate tools</h1>
-  <p class="lede">Lab calculators that run in your browser. Nothing you type leaves this page.</p>
+<header class="topbar">
+  <div class="inner">
+    <a class="wordmark" href="index.html">BenchMate tools</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch theme">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+<main class="wide">
+  <div class="page-head">
+    <p class="eyebrow">Bench tools</p>
+    <h1>BenchMate tools</h1>
+    <p class="lede">Lab calculators that run in your browser. Nothing you type leaves this page.</p>
+  </div>
 
   <h2>Calculate</h2>
   <ul class="tools">
-    <li><a href="concentration/index.html"><strong>Concentration</strong><span>mg/mL to molar, A₂₈₀</span></a></li>
-    <li><a href="dilution/index.html"><strong>Dilution</strong><span>Stock to working volume, C₁V₁ = C₂V₂</span></a></li>
-    <li><a href="serial-dilution/index.html"><strong>Serial dilution</strong><span>Fold series</span></a></li>
-    <li><a href="reagent-maker/index.html"><strong>Reagent maker</strong><span>Powder to solution</span></a></li>
-    <li><a href="cell-counting/index.html"><strong>Cell counting</strong><span>Hemocytometer, seeding</span></a></li>
-    <li><a href="count-samples/index.html"><strong>Count samples</strong><span>Count, then passage each</span></a></li>
+    <li class="reveal" style="--i:0"><a class="row-link" href="concentration/index.html"><span><span class="title">Concentration</span><span class="desc">mg/mL to molar, A₂₈₀</span><span class="tag celery">Solutions</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:1"><a class="row-link" href="dilution/index.html"><span><span class="title">Dilution</span><span class="desc">Stock to working volume, C₁V₁ = C₂V₂</span><span class="tag celery">Solutions</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:2"><a class="row-link" href="serial-dilution/index.html"><span><span class="title">Serial dilution</span><span class="desc">Fold series</span><span class="tag celery">Solutions</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:3"><a class="row-link" href="reagent-maker/index.html"><span><span class="title">Reagent maker</span><span class="desc">Powder to solution</span><span class="tag celery">Solutions</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:4"><a class="row-link" href="cell-counting/index.html"><span><span class="title">Cell counting</span><span class="desc">Hemocytometer, seeding</span><span class="tag porsche">Cell culture</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:5"><a class="row-link" href="count-samples/index.html"><span><span class="title">Count samples</span><span class="desc">Count, then passage each</span><span class="tag porsche">Cell culture</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
   </ul>
 
   <h2>Protocols</h2>
   <ul class="tools">
-    <li><a href="transfection/index.html"><strong>Transfection</strong><span>DNA and PEI per flask</span></a></li>
-    <li><a href="magnetic-sort/index.html"><strong>Magnetic sort</strong><span>EasySep negative selection</span></a></li>
-    <li><a href="celltrace/index.html"><strong>CellTrace</strong><span>Proliferation dye staining</span></a></li>
+    <li class="reveal" style="--i:0"><a class="row-link" href="transfection/index.html"><span><span class="title">Transfection</span><span class="desc">DNA and PEI per flask</span><span class="tag porsche">Cell culture</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:1"><a class="row-link" href="magnetic-sort/index.html"><span><span class="title">Magnetic sort</span><span class="desc">EasySep negative selection</span><span class="tag sky">Cell prep</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
+    <li class="reveal" style="--i:2"><a class="row-link" href="celltrace/index.html"><span><span class="title">CellTrace</span><span class="desc">Proliferation dye staining</span><span class="tag sky">Cell prep</span></span><span class="arrow" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></span></a></li>
   </ul>
 
   <div class="promo" data-app-promo></div>
