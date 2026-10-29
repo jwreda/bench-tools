@@ -7,6 +7,9 @@ released, so a result can be checked later against the version that produced it.
 
 - Transfection: when the summary says what's missing ("Enter the stock for pLuc", a ratio part,
   a size, the culture volume, flasks or the seeding density), a button takes you to that field.
+- Count samples: "Count on a hemocytometer" under each sample now has the four corner squares from
+  Cell counting (live and dead per square, with the stain and dilution), or an average. The
+  density reads back as you count, and "Use this count" fills in the live cells and viability.
 
 ## 1.3.1 — 2026-10-29
 

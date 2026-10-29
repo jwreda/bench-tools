@@ -162,6 +162,67 @@
   }
   $("#shared-chips").innerHTML = chipsHtml("shared");
 
+  // The hemocytometer under each sample: the four corner squares of Cell counting (or an average),
+  // the stain, and the dilution. "Use this count" writes the live density and viability above.
+  function hemocytometerHTML(i) {
+    var radio = function (name, value, label, on) {
+      return '<label><input type="radio" name="hc-' + name + "-" + i + '" value="' + value + '"' + (on ? " checked" : "") + ">" + label + "</label>";
+    };
+    var quads = [1, 2, 3, 4].map(function (q) {
+      var id = "hc-q" + q + "-" + i;
+      return '<div class="quad"><strong>Q' + q + "</strong>" +
+        '<label for="' + id + '-live" data-hc-live>live</label><input id="' + id + '-live" inputmode="numeric" placeholder="0">' +
+        '<label for="' + id + '-dead" data-hc-dead>dead (blue)</label><input id="' + id + '-dead" inputmode="numeric" placeholder="0"></div>';
+    }).join("");
+    return '<div class="segments" role="radiogroup" aria-label="Count entry">' + radio("mode", "squares", "Squares", true) + radio("mode", "average", "Average") + "</div>" +
+      '<div class="segments" role="radiogroup" aria-label="Stain">' + Object.keys(CC.STAINS).map(function (k, n) { return radio("stain", k, CC.STAINS[k].label, n === 0); }).join("") + "</div>" +
+      '<div data-hc-squares><p class="hint" style="margin:0 0 8px">The four large corner squares. Leave a square blank to skip it.</p><div class="quads">' + quads + "</div></div>" +
+      '<div data-hc-average hidden>' +
+      '<div class="field"><label for="hc-avg-' + i + '">Average count per square (live + dead)</label><input id="hc-avg-' + i + '" inputmode="decimal" placeholder="e.g. 24"></div>' +
+      '<div class="field"><label for="hc-via-' + i + '">Viability (optional, %)</label><input id="hc-via-' + i + '" inputmode="decimal" placeholder="e.g. 92"></div></div>' +
+      '<div class="field"><label for="hc-dil-' + i + '">Dilution factor</label><input id="hc-dil-' + i + '" inputmode="decimal" value="2"></div>' +
+      '<p class="hint" data-hc="' + i + '"></p>' +
+      '<button type="button" data-use="' + i + '">Use this count</button>';
+  }
+  function hcRadio(i, name) { var r = $("input[name=hc-" + name + "-" + i + "]:checked"); return r ? r.value : null; }
+  /** The hemocytometer count for sample i: { summary, invalid, mode, dilution } (summary null until it reads). */
+  function hcCount(i) {
+    var mode = hcRadio(i, "mode"), dil = BM.format.parse($("#hc-dil-" + i).value), summary = null, invalid = false;
+    if (mode === "squares") {
+      var squares = [1, 2, 3, 4].map(function (q) {
+        return { live: BM.format.parse($("#hc-q" + q + "-" + i + "-live").value), dead: BM.format.parse($("#hc-q" + q + "-" + i + "-dead").value) };
+      });
+      if (dil != null) summary = CC.summarizeSquares(squares, dil);
+    } else {
+      var avg = BM.format.parse($("#hc-avg-" + i).value), vText = $("#hc-via-" + i).value, vp = BM.format.parse(vText);
+      invalid = CC.viabilityIsInvalid("average", vText);
+      if (!invalid && avg != null && dil != null) summary = CC.summarizeAverage(avg, vp == null ? null : vp / 100, dil);
+    }
+    return { summary: summary, invalid: invalid, mode: mode, dilution: dil };
+  }
+  /** Shows the right panel and stain words, and reads the count back as it's typed. */
+  function hcRender(i, stainChanged) {
+    var box = $("[data-hc-box='" + i + "']");
+    if (!box) return;
+    var mode = hcRadio(i, "mode"), stain = hcRadio(i, "stain"), st0 = CC.STAINS[stain];
+    box.querySelector("[data-hc-squares]").hidden = mode !== "squares";
+    box.querySelector("[data-hc-average]").hidden = mode !== "average";
+    ui.$$("[data-hc-live]", box).forEach(function (l) { l.textContent = st0.liveWord; });
+    ui.$$("[data-hc-dead]", box).forEach(function (l) { l.textContent = st0.deadWord; });
+    if (stainChanged) {
+      var dil = $("#hc-dil-" + i);
+      dil.value = CC.factorTextAfterStainChange(box.lastStain || "trypanBlue", stain, dil.value);
+    }
+    box.lastStain = stain;
+    var c = hcCount(i), hint = $("[data-hc='" + i + "']");
+    if (c.invalid) hint.textContent = "Viability is a percentage, 0 to 100.";
+    else if (c.summary) hint.textContent = "= " + BM.format.scientific(c.summary.viableDensity) + " live cells/mL" +
+      (c.summary.viability != null ? " · " + BM.format.number(c.summary.viability * 100) + "% viable" : "") +
+      (CC.countWarnings(c.summary.averageTotal).length ? ". " + CC.countWarnings(c.summary.averageTotal).map(CC.countWarningText).join(" ") : "");
+    else hint.textContent = "";
+    $("[data-use='" + i + "']").disabled = !c.summary;
+  }
+
   // Rows are built when the sample count changes; inputs then write into `st`.
   function buildRows() {
     var count = $("#count-list"), rec = $("#recipe-list");
@@ -176,13 +237,9 @@
         '<div class="field"><label for="dens-' + i + '">Live cells</label><div class="row"><input id="dens-' + i + '" data-sci data-sci-unit="cells/mL" data-f="densityText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 20000000" value="' + ui.esc(s.densityText) + '"><span class="unit">cells/mL</span></div></div>' +
         '<div class="field"><label for="viab-' + i + '">Viability</label><div class="row"><input id="viab-' + i + '" data-f="viabilityText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 92" value="' + ui.esc(s.viabilityText) + '"><span class="unit">%</span></div></div>' +
         '<p class="hint" data-note="' + i + '"></p>' +
-        '<details><summary>Count on a hemocytometer</summary>' +
-        '<div class="field"><label for="hc-avg-' + i + '">Average count per square (live + dead)</label><input id="hc-avg-' + i + '" inputmode="decimal" placeholder="e.g. 24"></div>' +
-        '<div class="field"><label for="hc-dil-' + i + '">Dilution factor</label><input id="hc-dil-' + i + '" inputmode="decimal" value="2"></div>' +
-        '<div class="field"><label for="hc-via-' + i + '">Viability (optional, %)</label><input id="hc-via-' + i + '" inputmode="decimal" placeholder="e.g. 92"></div>' +
-        '<p class="hint" data-hc="' + i + '"></p>' +
-        '<button type="button" data-use="' + i + '">Use this count</button></details>';
+        '<details data-hc-box="' + i + '"><summary>Count on a hemocytometer</summary>' + hemocytometerHTML(i) + "</details>";
       count.appendChild(c);
+      hcRender(i);
 
       var r = document.createElement("div");
       r.className = "sample";
@@ -290,6 +347,8 @@
   // Events: typing into a row writes to state; everything else re-reads the static fields.
   form.addEventListener("input", function (e) {
     var t = e.target;
+    var hc = t.closest && t.closest("[data-hc-box]");
+    if (hc) { hcRender(+hc.getAttribute("data-hc-box"), /^hc-stain-/.test(t.name || "")); return; }
     if (t.getAttribute && t.getAttribute("data-f")) {
       var s = st.samples[+t.getAttribute("data-i")];
       s[t.getAttribute("data-f")] = t.value;
@@ -298,7 +357,10 @@
     }
     readStatic(); render();
   });
-  form.addEventListener("change", function () { readStatic(); render(); });
+  form.addEventListener("change", function (e) {
+    if (e.target.closest && e.target.closest("[data-hc-box]")) return;   // handled on input
+    readStatic(); render();
+  });
   form.addEventListener("submit", function (e) { e.preventDefault(); });
   form.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("button");
@@ -322,18 +384,13 @@
     } else if (b.hasAttribute("data-use")) {
       var i = +b.getAttribute("data-use");
       // The hemocytometer count: average per square × dilution × 10⁴ (the Cell counting engine).
-      var avg = BM.format.parse($("#hc-avg-" + i).value), dil = BM.format.parse($("#hc-dil-" + i).value);
-      var vText = $("#hc-via-" + i).value, vp = BM.format.parse(vText);
-      var invalid = CC.viabilityIsInvalid("average", vText);
-      var sum = !invalid && avg != null && dil != null ? CC.summarizeAverage(avg, vp == null ? null : vp / 100, dil) : null;
-      var hint = $("[data-hc='" + i + "']");
-      if (!sum) { hint.textContent = invalid ? "Viability is a percentage, 0 to 100." : "Enter the average count and a dilution factor."; return; }
+      var hc = hcCount(i), sum = hc.summary, dil = hc.dilution;
+      if (!sum) return;
       var s = st.samples[i];
       s.densityText = BM.format.editable(sum.viableDensity, 6);
       s.viabilityText = sum.viability != null ? BM.format.number(sum.viability * 100) : "";
-      s.countNote = "Average count ×" + BM.format.plain(dil) + (sum.viability != null ? " · " + BM.format.number(sum.viability * 100) + "% viable" : "");
-      var warns = CC.countWarnings(sum.averageTotal).map(CC.countWarningText);
-      hint.textContent = warns.join(" ");
+      s.countNote = (hc.mode === "squares" ? sum.squaresCounted + " square" + (sum.squaresCounted === 1 ? "" : "s") : "Average count") +
+        " ×" + BM.format.plain(dil) + (sum.viability != null ? " · " + BM.format.number(sum.viability * 100) + "% viable" : "");
       $("#dens-" + i).value = s.densityText; $("#viab-" + i).value = s.viabilityText;
       save(); render();
     }

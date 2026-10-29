@@ -289,6 +289,19 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--btn-bg); }
 label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; font-size: 15px; color: var(--text-2); }
 label.check input { width: 20px; height: 20px; }
 
+/* Hemocytometer corner squares (Cell counting, Count samples): a 2 × 2 of ruled squares. */
+.quads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+.quad { border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px; background:
+  linear-gradient(var(--border-strong), var(--border-strong)) 25% 0 / 1px 100% no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) 50% 0 / 1px 100% no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) 75% 0 / 1px 100% no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) 0 25% / 100% 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) 0 50% / 100% 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) 0 75% / 100% 1px no-repeat; }
+.quad strong { display: block; font-size: 15px; margin-bottom: 4px; }
+.quad label { display: block; font-size: 13px; color: var(--text-3); }
+.quad input { margin-bottom: 4px; background: var(--surface); }
+
 /* ===================================================================== buttons */
 button, .button {
   font: 500 16px/1.5 var(--font-sans);
