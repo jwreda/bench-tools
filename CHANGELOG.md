@@ -3,6 +3,11 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.1 — 2026-10-29
+
+- Count samples: where a recipe says "Count this sample first" or asks for the target, a button
+  now takes you to the field to fill in (scrolls it into view and puts the cursor there).
+
 ## 1.3.0 — 2026-10-29
 
 - Plate by wells: Cell counting (Seeding) and Count samples (Passage) take a new **Per well**
