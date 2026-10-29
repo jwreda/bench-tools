@@ -3,6 +3,13 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.4 — 2026-10-29
+
+Wisteria takes over the emphasis, matching joereda.phd's new signature colour. Links, selected
+choices (including the flask chips in Count samples), checkboxes, focus rings, outline buttons,
+the answer card and solved fields are now wisteria instead of green. Solid buttons and the
+wordmark stay forest green. No change to any calculation.
+
 ## 1.3.3 — 2026-10-29
 
 - Transfection: when the summary says what's missing ("Enter the stock for pLuc", a ratio part,
