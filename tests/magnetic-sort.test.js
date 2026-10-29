@@ -326,3 +326,51 @@ test("blocked plans say why, keep the volume they'd need, and offer the fix", ()
   assert.equal(E.blockedResuspension(E.resuspension(3e8, 0.5, "diluteAll")), null);
   assert.equal(E.blockedResuspension(E.resuspension(5e8, 1, "concentrate")), null);
 });
+
+// ---- plating the isolated cells and the CellTrace hand-off (web only; not in the app yet)
+
+const wellsT = (o) => Object.assign({ wells: "24", cellsPerWell: "100000", volume: "200", volumeUnit: "uL", overage: "10", overageKind: "percent" }, o);
+const isolated = (d, v) => ({ isolatedDensityText: d, isolatedVolumeText: v });
+
+test("plating: isolated cells into 24 wells of 1e5 in 200 µL, +10%", () => {
+  const pl = E.plating(isolated("4000000", "2.5"), wellsT());
+  assert.ok(pl.result.ok);
+  const q = pl.result.plan;
+  assert.ok(Math.abs(q.cellsNeeded - 2.64e6) < 1e-3);
+  assert.ok(Math.abs(q.stockVolume - 0.66) < 1e-12);
+  assert.ok(Math.abs(q.stockVolume + q.mediaVolume - 5.28) < 1e-12);
+  assert.equal(pl.wellsPossible, null);
+  const card = E.describePlating(pl);
+  assert.equal(card.value, "660.0");
+  assert.equal(card.unit, "µL cells");
+  assert.equal(card.blocked, undefined);
+  assert.equal(card.lines[1], "At 5.0 × 10⁵ cells/mL. Mix for 26.4 wells (24 + 10%)");
+});
+
+test("plating: not enough isolated cells says how many wells they cover", () => {
+  const pl = E.plating(isolated("4000000", "0.5"), wellsT());   // 2 × 10⁶ cells, 1.1 × 10⁵ per well
+  assert.equal(pl.wellsPossible, 18);
+  assert.match(E.describePlating(pl).blocked.wouldNeed.note, /enough for 18 wells/);
+  const extra = E.plating(isolated("4000000", "0.5"), wellsT({ overage: "2", overageKind: "wells" }));
+  assert.equal(extra.wellsPossible, 18);   // 20 wells' worth, 2 of them extra
+});
+
+test("plating: too dilute, missing count, and a negative overage", () => {
+  const thin = E.plating(isolated("100000", "50"), wellsT());
+  assert.equal(thin.result.ok, false);
+  assert.match(E.describePlating(thin).blocked.title, /too dilute/);
+  assert.equal(E.describePlating(E.plating(isolated("", ""), wellsT())), null);
+  const neg = E.plating(isolated("4000000", "2.5"), wellsT({ overage: "-1" }));
+  assert.equal(neg.result, null);
+  assert.equal(E.platingWarnings(neg)[0].level, "error");
+});
+
+test("CellTrace hand-off carries the isolated count and the wells", () => {
+  const s = isolated("4000000", "2.5");
+  assert.equal(E.celltraceQuery(s, E.plating(s, wellsT()), "OT-I"),
+    "density=4000000&volume=2.5&from=OT-I&cpw=100000&wells=24&perwell=200&excess=10&stain=wells");
+  assert.equal(E.celltraceQuery(s, E.plating(s, wellsT({ volume: "0.5", volumeUnit: "mL", overage: "6", overageKind: "wells" })), "OT-I"),
+    "density=4000000&volume=2.5&from=OT-I&cpw=100000&wells=24&perwell=500&excess=25&stain=wells");
+  assert.equal(E.celltraceQuery(s, E.plating(s, wellsT({ wells: "" })), "OT-I"), "density=4000000&volume=2.5&from=OT-I");
+  assert.equal(E.celltraceQuery(isolated("4000000", ""), null, "OT-I"), null);
+});

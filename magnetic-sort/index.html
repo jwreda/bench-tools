@@ -19,6 +19,9 @@
   .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0; font-size: 15px; }
   .facts dt { color: var(--text-3); }
   .facts dd { margin: 0; }
+  .handoff { margin: 0 0 24px; }
+  .plate-hint { margin: 0 0 14px; }
+  .handoff .hint { margin: 8px 0 0; }
   /* One pastel per sample line, so a step reads at a glance. */
   .tag.s0 { --tag: var(--sky); --tag-deep: var(--sky-deep); }
   .tag.s1 { --tag: var(--porsche); --tag-deep: var(--porsche-deep); }
@@ -106,6 +109,7 @@
   <div class="promo" data-app-promo></div>
 </main>
 <script src="../assets/bench.js"></script>
+<script src="../cell-counting/engine.js"></script>
 <script src="engine.js"></script>
 <script src="steps.js"></script>
 <script>
@@ -168,7 +172,19 @@
     return '<section class="card" id="' + p + '-iso"><h2 id="' + p + '-iso-title">Isolated cells</h2>' +
       '<div class="field"><label for="' + p + '-iden">Live cells per mL</label><input id="' + p + '-iden" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 4e6"></div>' +
       '<div class="field"><label for="' + p + '-ivol">Volume (mL)</label><input id="' + p + '-ivol" inputmode="decimal" placeholder="e.g. 2.5"></div>' +
-      '<dl class="facts" id="' + p + '-yield"></dl></section>';
+      '<dl class="facts" id="' + p + '-yield"></dl></section>' +
+      '<section class="card" id="' + p + '-plate"><h2 id="' + p + '-plate-title">Plate</h2>' +
+      '<p class="hint plate-hint">Straight from the sort into wells, with a little extra for pipetting loss. Staining first? CellTrace, below, takes these wells too.</p>' +
+      '<div class="field"><label for="' + p + '-pw-wells">Number of wells</label><input id="' + p + '-pw-wells" inputmode="numeric" placeholder="e.g. 24" value="24"></div>' +
+      '<div class="field"><label for="' + p + '-pw-cpw">Cells per well</label><div class="row"><input id="' + p + '-pw-cpw" data-sci data-sci-unit="cells" inputmode="decimal" placeholder="e.g. 100000" value="100000"><span class="unit">cells</span></div></div>' +
+      '<div class="field"><label for="' + p + '-pw-vol">Volume per well</label><div class="row"><input id="' + p + '-pw-vol" inputmode="decimal" placeholder="e.g. 200" value="200">' +
+      '<select id="' + p + '-pw-unit" aria-label="Volume per well unit"><option value="uL">µL</option><option value="mL">mL</option></select></div></div>' +
+      '<div class="field"><label for="' + p + '-pw-over">Overage</label><div class="row"><input id="' + p + '-pw-over" inputmode="decimal" placeholder="e.g. 10" value="10">' +
+      '<select id="' + p + '-pw-kind" aria-label="Overage as"><option value="percent">%</option><option value="wells">extra wells</option></select></div></div>' +
+      '</section>' +
+      '<section class="result" id="' + p + '-plate-result" aria-live="polite"><div class="caption">Plating mix</div><div class="hero" id="' + p + '-plate-hero">—</div>' +
+      '<div id="' + p + '-plate-lines"></div><div id="' + p + '-plate-warn"></div></section>' +
+      '<div class="handoff" id="' + p + '-handoff"></div>';
   }).join("");
 
   var persist = ui.persist(form, "magnetic-sort");
@@ -223,6 +239,9 @@
     $("#s1-kitlabel").textContent = "OT-II kit";
     $("#s1-block").hidden = !par;
     $("#s1-iso").hidden = !par;
+    $("#s1-plate").hidden = !par;
+    $("#s1-plate-result").hidden = !par;
+    $("#s1-handoff").hidden = !par;
 
     var kits = active().map(function (i) { return E.kit($("#s" + i + "-kit").value); });
     renderFacts(kits, m);
@@ -312,9 +331,40 @@
         if (s.inputCells) y += "<dt>Of the cells put in</dt><dd>" + esc(F.number(s.recoveryPercent).replace(/\.\d+$/, function (x) { return x; })) + "% of " + esc(F.scientific(s.inputCells)) + "</dd>";
       }
       $("#" + p + "-yield").innerHTML = y;
+      renderPlate(i, d, label);
     });
 
     renderSeparate(samples, m);
+  }
+
+  // Plate: the isolated cells into wells, then on to CellTrace with all of it filled in.
+  function renderPlate(i, d, label) {
+    var p = "s" + i;
+    $("#" + p + "-plate-title").textContent = parallel() ? "Plate " + label : "Plate";
+    var pl = E.plating(d, {
+      wells: $("#" + p + "-pw-wells").value, cellsPerWell: $("#" + p + "-pw-cpw").value, volume: $("#" + p + "-pw-vol").value,
+      volumeUnit: $("#" + p + "-pw-unit").value, overage: $("#" + p + "-pw-over").value, overageKind: $("#" + p + "-pw-kind").value
+    });
+    var card = E.describePlating(pl), box = $("#" + p + "-plate-result");
+    var blocked = card && card.blocked;
+    box.classList.toggle("blocked", !!blocked);
+    if (blocked) {
+      $("#" + p + "-plate-hero").innerHTML = "";
+      $("#" + p + "-plate-lines").innerHTML = ui.blockedHTML(blocked);
+    } else if (card) {
+      $("#" + p + "-plate-hero").innerHTML = esc(card.value) + " <small>" + esc(card.unit) + "</small>";
+      $("#" + p + "-plate-lines").innerHTML = '<p class="hint">' + card.lines.map(esc).join("<br>") + "</p>";
+    } else {
+      $("#" + p + "-plate-hero").textContent = "—";
+      $("#" + p + "-plate-lines").innerHTML = pl.target.overageInvalid ? "" : '<p class="empty">' + (pl.target.plan
+        ? "Enter the isolated cells per mL above." : "Enter wells (a whole number), cells and volume per well.") + "</p>";
+    }
+    ui.warnings($("#" + p + "-plate-warn"), E.platingWarnings(pl));
+    var q = E.celltraceQuery(d, pl, label);
+    $("#" + p + "-handoff").innerHTML = q
+      ? '<a class="button" href="../celltrace/index.html?' + esc(q) + '">Stain with CellTrace Violet</a>' +
+        '<p class="hint">Opens CellTrace with ' + (parallel() ? "the " + esc(label) + " cells" : "these isolated cells") + (pl.target.plan ? " and wells" : "") + " filled in.</p>"
+      : "";
   }
 
   function renderFacts(kits, m) {
