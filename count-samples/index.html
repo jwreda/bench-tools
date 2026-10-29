@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Count samples · BenchMate</title>
-<meta name="description" content="Count several cell samples, then work out how much suspension and medium to passage each into, as volumes and a dilution factor.">
+<meta name="description" content="Count several cell samples, then work out how much suspension and medium to passage or plate each into, as volumes and a dilution factor, by volume or by wells.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap">
@@ -73,8 +73,24 @@
       <div class="segments" role="radiogroup" aria-label="Seeding amount as">
         <label><input type="radio" name="amount-mode" value="density" id="mode-density" checked>Cells/mL</label>
         <label><input type="radio" name="amount-mode" value="totalCells" id="mode-total">Total cells</label>
+        <label><input type="radio" name="amount-mode" value="wells" id="mode-wells">Per well</label>
       </div>
       <div id="shared-target">
+        <div id="shared-wells">
+          <div class="field">
+            <label for="shared-wells-count">Number of wells</label>
+            <input id="shared-wells-count" inputmode="numeric" placeholder="e.g. 24" value="24">
+          </div>
+          <div class="field">
+            <label for="shared-cpw">Cells per well</label>
+            <div class="row"><input id="shared-cpw" data-sci data-sci-unit="cells" inputmode="decimal" placeholder="e.g. 50000" value="50000"><span class="unit">cells</span></div>
+          </div>
+          <div class="field">
+            <label for="shared-wvol">Volume per well</label>
+            <div class="row"><input id="shared-wvol" inputmode="decimal" placeholder="e.g. 500" value="500"><select id="well-volume-unit" aria-label="Volume per well unit"><option value="uL">µL</option><option value="mL">mL</option></select></div>
+          </div>
+        </div>
+        <div id="shared-volume-fields">
         <div class="field">
           <div class="label">Flask size (fills to a quarter)</div>
           <div class="chips" id="shared-chips"></div>
@@ -85,6 +101,12 @@
           <label for="shared-amount" id="shared-amount-label">Seeding density</label>
           <div class="row"><input id="shared-amount" data-sci inputmode="decimal" placeholder="e.g. 100000" value="100000"><span class="unit amount-unit">cells/mL</span></div>
         </div>
+        </div>
+      </div>
+      <div class="field" id="wells-overage">
+        <label for="overage">Overage</label>
+        <div class="row"><input id="overage" inputmode="decimal" placeholder="e.g. 10" value="10"><select id="overage-kind" aria-label="Overage as"><option value="percent">%</option><option value="wells">extra wells</option></select></div>
+        <p class="hint">Mixes a little extra so pipetting loss doesn't leave the last wells short.</p>
       </div>
     </div>
 
@@ -101,7 +123,7 @@
 (function () {
   "use strict";
   var ui = BM.ui, P = BM.passaging, CC = BM.cellCounting, $ = ui.$;
-  var form = $("#form"), KEY = "benchmate.web.count-samples";
+  var form = $("#form"), KEY = "benchmate.web.count-samples.samples";   // not the key BM.ui.persist uses for the static fields
   var st = P.newState();
 
   // Samples and their counts live in one JSON blob; the static fields use BM.ui.persist.
@@ -123,6 +145,12 @@
     st.amountMode = $("input[name=amount-mode]:checked").value;
     st.sharedFinalVolumeText = $("#shared-volume").value;
     st.sharedAmountText = $("#shared-amount").value;
+    st.sharedWellsText = $("#shared-wells-count").value;
+    st.sharedCellsPerWellText = $("#shared-cpw").value;
+    st.sharedWellVolumeText = $("#shared-wvol").value;
+    st.wellVolumeUnit = $("#well-volume-unit").value;
+    st.overageText = $("#overage").value;
+    st.overageKind = $("#overage-kind").value;
   }
   readStatic();
 
@@ -161,16 +189,24 @@
       r.innerHTML =
         '<div class="card" data-target="' + i + '" hidden>' +
         '<h3 data-name="' + i + '"></h3><p class="meta" data-live="' + i + '"></p>' +
+        '<div data-wells-fields>' +
+        '<div class="field"><label for="wells-' + i + '">Number of wells</label><input id="wells-' + i + '" data-f="wellsText" data-i="' + i + '" inputmode="numeric" placeholder="e.g. 24" value="' + ui.esc(s.wellsText) + '"></div>' +
+        '<div class="field"><label for="cpw-' + i + '">Cells per well</label><div class="row"><input id="cpw-' + i + '" data-sci data-sci-unit="cells" data-f="cellsPerWellText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 50000" value="' + ui.esc(s.cellsPerWellText) + '"><span class="unit">cells</span></div></div>' +
+        '<div class="field"><label for="wvol-' + i + '">Volume per well</label><div class="row"><input id="wvol-' + i + '" data-f="wellVolumeText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 500" value="' + ui.esc(s.wellVolumeText) + '">' +
+        '<select data-f="wellVolumeUnit" data-i="' + i + '" aria-label="Volume per well unit">' + ["uL", "mL"].map(function (u) {
+          return '<option value="' + u + '"' + (u === (s.wellVolumeUnit || st.wellVolumeUnit) ? " selected" : "") + ">" + (u === "uL" ? "µL" : "mL") + "</option>";
+        }).join("") + "</select></div></div></div>" +
+        '<div data-volume-fields>' +
         '<div class="chips">' + chipsHtml(i) + "</div>" +
         '<div class="field"><label for="vol-' + i + '">Final volume</label><div class="row"><input id="vol-' + i + '" data-f="finalVolumeText" data-i="' + i + '" inputmode="decimal" placeholder="e.g. 10" value="' + ui.esc(s.finalVolumeText) + '"><span class="unit">mL</span></div></div>' +
-        '<div class="field"><label for="amt-' + i + '" data-amount-label>Seeding density</label><div class="row"><input id="amt-' + i + '" data-sci data-f="amountText" data-i="' + i + '" inputmode="decimal" value="' + ui.esc(s.amountText) + '"><span class="unit amount-unit"></span></div></div></div>' +
+        '<div class="field"><label for="amt-' + i + '" data-amount-label>Seeding density</label><div class="row"><input id="amt-' + i + '" data-sci data-f="amountText" data-i="' + i + '" inputmode="decimal" value="' + ui.esc(s.amountText) + '"><span class="unit amount-unit"></span></div></div></div></div>' +
         '<section class="result" aria-live="polite"><div class="caption" data-name="' + i + '"></div><div class="hero" data-hero="' + i + '">—</div><div data-body="' + i + '"></div><div data-warn="' + i + '"></div></section>';
       rec.appendChild(r);
     });
   }
 
   function render() {
-    var idx = P.indices(st), mode = st.amountMode, total = mode === "totalCells";
+    var idx = P.indices(st), mode = st.amountMode, total = mode === "totalCells", byWells = mode === "wells";
     var unit = total ? "cells" : "cells/mL", label = total ? "Cells to seed" : "Seeding density";
     $("#count-line").textContent = idx.length + " sample" + (idx.length === 1 ? "" : "s");
     $("#add").disabled = idx.length >= P.SAMPLE_MAX;
@@ -178,6 +214,9 @@
     $("#reset-names").disabled = !P.hasCustomNames(st);
     $("#counted-line").textContent = P.countedSamples(st) + " of " + idx.length + " counted. Seeding uses live cells.";
     $("#shared-target").hidden = !st.sameTarget;
+    $("#shared-wells").hidden = !byWells;
+    $("#shared-volume-fields").hidden = byWells;
+    $("#wells-overage").hidden = !byWells;
     $("#shared-amount-label").textContent = label;
     $("#shared-amount").placeholder = total ? "e.g. 1000000" : "e.g. 100000";
     $("#shared-amount").parentNode.querySelector(".amount-unit").textContent = unit;
@@ -190,6 +229,8 @@
       $("[data-note='" + i + "']").textContent = s.countNote || "";
       var target = $("[data-target='" + i + "']");
       target.hidden = st.sameTarget;
+      target.querySelector("[data-wells-fields]").hidden = !byWells;
+      target.querySelector("[data-volume-fields]").hidden = byWells;
       target.querySelector("[data-amount-label]").textContent = label;
       target.querySelector(".amount-unit").textContent = unit;
       $("#amt-" + i).placeholder = total ? "e.g. 1000000" : "e.g. 100000";
@@ -201,13 +242,16 @@
       if (res && res.ok) {
         var r = res.recipe, p = P.mLParts(r.suspensionVolume);
         hero.innerHTML = ui.esc(p.value) + " <small>" + ui.esc(p.unit) + " cells</small>";
-        body.innerHTML = '<p class="hint">' + [
-          "+ " + P.mL(r.mediumVolume) + " medium → " + P.mL(r.finalVolume) + " total",
-          P.dilutionText(r.dilutionFactor), P.detailText(st, i, r)
-        ].map(ui.esc).join("<br>") + "</p>";
+        var lines = ["+ " + P.mL(r.mediumVolume) + " medium → " + P.mL(r.finalVolume) + " total",
+          P.dilutionText(r.dilutionFactor), P.detailText(st, i, r)];
+        var wp = byWells && P.wellTarget(st, i).plan;
+        if (wp) lines.push(CC.wellMixText(wp), CC.wellPlateText(wp));
+        body.innerHTML = '<p class="hint">' + lines.map(ui.esc).join("<br>") + "</p>";
       } else {
         hero.textContent = "—";
-        body.innerHTML = res ? "" : '<p class="empty">' + (d == null ? "Count this sample first" : "Enter final volume and seeding amount") + "</p>";
+        var wt = byWells ? P.wellTarget(st, i) : null;
+        body.innerHTML = res || (wt && wt.overageInvalid) ? "" : '<p class="empty">' + (d == null ? "Count this sample first"
+          : byWells ? "Enter wells (a whole number), cells and volume per well" : "Enter final volume and seeding amount") + "</p>";
       }
       ui.warnings($("[data-warn='" + i + "']"), P.sampleWarnings(st, i));
     });

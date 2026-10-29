@@ -3,6 +3,16 @@
 Each release stays online at its own address (`/v1.0.0/` and so on), exactly as it was
 released, so a result can be checked later against the version that produced it.
 
+## 1.3.0 — 2026-10-29
+
+- Plate by wells: Cell counting (Seeding) and Count samples (Passage) take a new **Per well**
+  target. Enter the number of wells, cells per well and volume per well (µL or mL), plus an
+  overage for pipetting loss (default +10 %, or a number of extra wells), and get the stock
+  and medium to mix, the total cells and volume, the cells/mL, and what goes into each well.
+  Typing a plating volume in mL works as before. Not in the app yet.
+- Count samples keeps its counts after a reload again (the samples and the other fields were
+  saved under the same key, so changing a choice could drop the counts).
+
 ## 1.2.0 — 2026-10-29
 
 - Impossible plans now say so plainly instead of printing a recipe that can't work: why it

@@ -109,6 +109,77 @@
     return { ok: true, plan: { cellsNeeded: cellsNeeded, stockVolume: stockVol, mediaVolume: Math.max(targetVolumeML - stockVol, 0), warnings: warnings } };
   }
 
+  // ------------------------------------------------------------------ plating by wells
+  // Web only so far (not in the app): the plating volume and cells from wells × cells per well ×
+  // volume per well, mixed with an overage so pipetting loss doesn't leave the last wells short.
+  // Count samples (../count-samples/passaging.js) uses the same functions.
+
+  var MAX_WELLS = 10000;
+  var DEFAULT_OVERAGE_PERCENT = 10;
+
+  /**
+   * Wells' worth to mix: wells × (1 + percent / 100), or wells + extra wells.
+   * overage = { kind: "percent" | "wells", value }. Null when wells isn't a whole number
+   * 1…10 000 or the overage is negative.
+   */
+  function wellsToMix(wells, overage) {
+    if (!(wells >= 1) || wells > MAX_WELLS || wells !== Math.round(wells)) return null;
+    if (!(overage.value >= 0) || !isFinite(overage.value)) return null;
+    return overage.kind === "wells" ? wells + overage.value : wells * (1 + overage.value / 100);
+  }
+
+  /**
+   * { wells, mixWells, overage, cellsPerWell, volumePerWell, density, cellsNeeded, totalVolume }
+   * (volumes mL, density cells/mL), or null when an input is missing or out of range.
+   */
+  function wellPlan(wells, cellsPerWell, volumePerWellML, overage) {
+    var mixWells = wellsToMix(wells, overage);
+    if (mixWells == null || !(cellsPerWell > 0) || !isFinite(cellsPerWell) || !(volumePerWellML > 0) || !isFinite(volumePerWellML)) return null;
+    return {
+      wells: wells, mixWells: mixWells, overage: overage, cellsPerWell: cellsPerWell, volumePerWell: volumePerWellML,
+      density: cellsPerWell / volumePerWellML, cellsNeeded: cellsPerWell * mixWells, totalVolume: volumePerWellML * mixWells
+    };
+  }
+
+  /**
+   * The wells fields as typed: t = { wells, cellsPerWell, volume, volumeUnit: "uL"|"mL",
+   * overage, overageKind: "percent"|"wells" } (texts). A blank overage is no overage.
+   * → { plan: wellPlan() | null, overageInvalid }
+   */
+  function wellTarget(t, sep) {
+    var o = blank(t.overage) ? 0 : F.parse(t.overage, sep);
+    var overageInvalid = o == null || !(o >= 0);
+    var v = F.parse(t.volume, sep);
+    var vML = v == null ? null : t.volumeUnit === "mL" ? v : v * MICROLITER_IN_ML;
+    var plan = overageInvalid ? null : wellPlan(F.parse(t.wells, sep), F.parse(t.cellsPerWell, sep), vML, { kind: t.overageKind === "wells" ? "wells" : "percent", value: o });
+    return { plan: plan, overageInvalid: overageInvalid };
+  }
+
+  var OVERAGE_ERROR = "Overage can't be negative. Check the number typed.";
+
+  /** Warnings for a wells target, { level, text }. */
+  function wellWarnings(target) {
+    if (target.overageInvalid) return [{ level: "error", text: OVERAGE_ERROR }];
+    var p = target.plan;
+    if (p && p.overage.value === 0 && p.wells > 1) {
+      return [{ level: "warn", text: "No overage: pipetting loss can leave the last wells short. " + DEFAULT_OVERAGE_PERCENT + "% extra is usual." }];
+    }
+    return [];
+  }
+
+  /** "Mix for 26.4 wells (24 + 10%)", "Mix for 26 wells (24 + 2 extra)", "Mix for 24 wells (no overage)". */
+  function wellMixText(p) {
+    var mix = "Mix for " + formatArea(p.mixWells) + " well" + (p.mixWells === 1 ? "" : "s");
+    if (p.overage.value === 0) return mix + " (no overage)";
+    return mix + " (" + p.wells + " + " + formatArea(p.overage.value) + (p.overage.kind === "wells" ? " extra" : "%") + ")";
+  }
+
+  /** "Plate 500.0 µL per well, 5.0 × 10⁴ cells each, into 24 wells". */
+  function wellPlateText(p) {
+    return "Plate " + volumeML(p.volumePerWell) + " per well, " + F.scientific(p.cellsPerWell) + " cells each, into " +
+      p.wells + " well" + (p.wells === 1 ? "" : "s");
+  }
+
   // ------------------------------------------------------------------ model (CellCountingModel)
 
   /** The dilution factor text after the stain changes: follows the stain's mix unless a factor of the user's own is typed. */
@@ -182,17 +253,23 @@
 
   /**
    * The seeding half. state adds { source: "measured"|"manual", manualStock, targetMode:
-   * "densityVolume"|"densityArea", targetDensity, targetPerCm2, vessel, volume, vesselCount }.
+   * "densityVolume"|"densityArea"|"wells", targetDensity, targetPerCm2, vessel, volume, vesselCount,
+   * and for wells: wells, cellsPerWell, wellVolume, wellVolumeUnit, overage, overageKind }.
    * measuredDensity is the count's live density (or null).
-   * → { stockDensity, vesselsSeeded, totalPlatingVolume, result: null | seedingPlan() result }
+   * → { stockDensity, vesselsSeeded, totalPlatingVolume, wells: null | wellTarget(), result: null | seedingPlan() result }
    */
   function seeding(state, measuredDensity, sep) {
     var stock = state.source === "manual" ? F.parse(state.manualStock, sep) : measuredDensity;
     var seeded = vesselsSeeded(state, sep);
     var pv = platingVolume(state, sep);
     var total = pv != null && seeded != null ? pv * seeded : null;
-    var cells = null;
-    if (state.targetMode === "densityVolume") {
+    var cells = null, wells = null;
+    if (state.targetMode === "wells") {
+      wells = wellTarget({ wells: state.wells, cellsPerWell: state.cellsPerWell, volume: state.wellVolume,
+        volumeUnit: state.wellVolumeUnit, overage: state.overage, overageKind: state.overageKind }, sep);
+      total = wells.plan ? wells.plan.totalVolume : null;
+      if (wells.plan) cells = wells.plan.cellsNeeded;
+    } else if (state.targetMode === "densityVolume") {
       var d = F.parse(state.targetDensity, sep);
       if (d != null && d > 0 && pv != null) cells = cellsNeededByVolume(d, pv);
     } else {
@@ -203,7 +280,7 @@
     if (stock != null && stock > 0 && cells != null && total != null) {
       result = seedingPlan(stock, cells, total);
     }
-    return { stockDensity: stock == null ? null : stock, vesselsSeeded: seeded, totalPlatingVolume: total, result: result };
+    return { stockDensity: stock == null ? null : stock, vesselsSeeded: seeded, totalPlatingVolume: total, wells: wells, result: result };
   }
 
   // ------------------------------------------------------------------ text
@@ -289,7 +366,7 @@
     var densityWarnings = [];
     if (c.viabilityInvalid) densityWarnings.push({ level: "error", text: VIABILITY_ERROR });
     c.warnings.forEach(function (w) { densityWarnings.push({ level: "warn", text: countWarningText(w) }); });
-    var seedingWarnings = [];
+    var seedingWarnings = sd.wells ? wellWarnings(sd.wells) : [];
     if (sd.result && sd.result.ok) {
       sd.result.plan.warnings.forEach(function (w) { seedingWarnings.push({ level: "warn", text: seedingWarningText(w) }); });
     } else if (sd.result) {
@@ -332,6 +409,8 @@
         volumeML(p.stockVolume + p.mediaVolume) + " total (" + F.scientific(p.cellsNeeded) + " cells)";
       var split = vesselSplitText(state, p, r.seeding.vesselsSeeded);
       if (split) l += ". " + split;
+      var wp = r.seeding.wells && r.seeding.wells.plan;
+      if (wp) l += " at " + F.scientific(wp.density) + " cells/mL. " + wellMixText(wp) + ". " + wellPlateText(wp);
       lines.push(l);
     } else if (res) {
       lines.push("Seeding: stock too dilute (needs " + volumeML(res.failure.neededML) + " of stock, more than the plating volume)");
@@ -350,7 +429,10 @@
     count: count, seeding: seeding, vesselsSeeded: vesselsSeeded, compute: compute,
     volumeML: volumeML, volumeMLParts: volumeMLParts, formatArea: formatArea,
     countWarningText: countWarningText, seedingWarningText: seedingWarningText, tooDiluteText: tooDiluteText,
-    dilutionText: dilutionText, vesselSplitText: vesselSplitText, densityLines: densityLines, copyText: copyText
+    dilutionText: dilutionText, vesselSplitText: vesselSplitText, densityLines: densityLines, copyText: copyText,
+    MAX_WELLS: MAX_WELLS, DEFAULT_OVERAGE_PERCENT: DEFAULT_OVERAGE_PERCENT, OVERAGE_ERROR: OVERAGE_ERROR,
+    wellsToMix: wellsToMix, wellPlan: wellPlan, wellTarget: wellTarget, wellWarnings: wellWarnings,
+    wellMixText: wellMixText, wellPlateText: wellPlateText
   };
   BM.cellCounting = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -64,6 +64,13 @@ counts, MW). A line under it reads the number back: "= 2.5 × 10⁶ = 2,500,000 
 Set `BM.APP_STORE_URL` in `assets/bench.js` once BenchMate is live; every page's
 "Coming soon to the App Store" note becomes a "Get BenchMate on the App Store" button.
 
+## Web-only additions
+
+Not in the app yet, so there is no Swift to match; port them to the app when it catches up:
+
+- Plating by wells (1.3.0): `wellPlan` / `wellTarget` in `cell-counting/engine.js`, used by the
+  Per well target in Cell counting and Count samples.
+
 ## Source
 
 Ported from the BenchMate iOS app (`phase2/shareable` at b0a1480, 2026-10-28). When the app's
