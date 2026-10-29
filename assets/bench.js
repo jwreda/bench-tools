@@ -16,7 +16,7 @@
    * vX.Y.Z; the deploy keeps every tagged release live at /vX.Y.Z/ and flips FROZEN to true
    * in those copies so their pages say they're an archived version.
    */
-  BM.VERSION = "1.2.0";
+  BM.VERSION = "1.3.0";
   BM.FROZEN = false;
 
   // ---------------------------------------------------------------- units
@@ -287,6 +287,54 @@
         fallback();
       }
     });
+  };
+
+  // ---------------------------------------------------------------- handing values to another tool
+  // One tool links to the next with its results in the query string ("?density=4000000&wells=24"),
+  // and the next page fills its fields from it once. Numbers travel with "." decimals and are
+  // written into fields in the reader's own decimal mark.
+  BM.handoff = {
+    /** "density=4000000&volume=2.5": finite numbers and plain strings; null and undefined are left out. */
+    query: function (values) {
+      return Object.keys(values).filter(function (k) {
+        var v = values[k];
+        return v != null && (typeof v !== "number" || isFinite(v));
+      }).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(String(values[k])); }).join("&");
+    },
+    /** { key: number | string } for the allowed keys in `search` ("?a=1&b=x"); numbers are those that read as one. */
+    parse: function (search, allowed) {
+      var out = {};
+      String(search || "").replace(/^\?/, "").split("&").forEach(function (pair) {
+        if (!pair) return;
+        var i = pair.indexOf("="), k, v;
+        try {
+          k = decodeURIComponent(i < 0 ? pair : pair.slice(0, i));
+          v = i < 0 ? "" : decodeURIComponent(pair.slice(i + 1).replace(/\+/g, " "));
+        } catch (e) { return; }
+        if (allowed.indexOf(k) < 0) return;
+        var n = F.parse(v, ".");
+        out[k] = n !== null ? n : v;
+      });
+      return out;
+    }
+  };
+
+  /**
+   * Fill fields from the page's query string, once: `fields` maps a query key to an input id.
+   * Numbers are written in the reader's decimal mark. The query is then dropped from the address
+   * so a reload keeps what was typed since. Returns the parsed values ({} when none).
+   */
+  ui.prefill = function (form, fields, extraKeys) {
+    if (typeof location === "undefined" || !location.search) return {};
+    var got = BM.handoff.parse(location.search, Object.keys(fields).concat(extraKeys || []));
+    Object.keys(fields).forEach(function (k) {
+      if (typeof got[k] !== "number") return;
+      ui.$$(fields[k].split(" ").map(function (id) { return "#" + id; }).join(","), form).forEach(function (el) {
+        el.value = F.editable(got[k]);
+      });
+    });
+    try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) { /* ignore */ }
+    return got;
   };
 
   // ---------------------------------------------------------------- Markdown copy

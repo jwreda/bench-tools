@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cell counting · BenchMate</title>
-<meta name="description" content="Hemocytometer counts to cells/mL with viability, then the stock and media volumes to seed a target density or cells/cm² into wells and flasks.">
+<meta name="description" content="Hemocytometer counts to cells/mL with viability, then the stock and media volumes to seed a target density, cells/cm², or cells per well (with overage) into wells and flasks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap">
@@ -125,6 +125,7 @@
       <div class="segments" role="radiogroup" aria-label="Seeding target type">
         <label><input type="radio" name="target" value="densityVolume" id="target-densityVolume" checked>Density × Volume</label>
         <label><input type="radio" name="target" value="densityArea" id="target-densityArea">Density × Area</label>
+        <label><input type="radio" name="target" value="wells" id="target-wells">Per well</label>
       </div>
       <div class="field" id="target-vol-field">
         <label for="target-density">Target density</label>
@@ -144,7 +145,26 @@
           <input id="vessel-count" inputmode="numeric" placeholder="e.g. 6" value="1">
         </div>
       </div>
-      <div class="field">
+      <div id="target-wells-fields" hidden>
+        <div class="field">
+          <label for="wells">Number of wells</label>
+          <input id="wells" inputmode="numeric" placeholder="e.g. 24" value="24">
+        </div>
+        <div class="field">
+          <label for="cells-per-well">Cells per well</label>
+          <div class="row"><input id="cells-per-well" data-sci data-sci-unit="cells" inputmode="decimal" placeholder="e.g. 50000" value="50000"><span class="unit">cells</span></div>
+        </div>
+        <div class="field">
+          <label for="well-volume">Volume per well</label>
+          <div class="row"><input id="well-volume" inputmode="decimal" placeholder="e.g. 500" value="500"><select id="well-volume-unit" aria-label="Volume per well unit"><option value="uL">µL</option><option value="mL">mL</option></select></div>
+        </div>
+        <div class="field">
+          <label for="overage">Overage</label>
+          <div class="row"><input id="overage" inputmode="decimal" placeholder="e.g. 10" value="10"><select id="overage-kind" aria-label="Overage as"><option value="percent">%</option><option value="wells">extra wells</option></select></div>
+          <p class="hint">Mixes a little extra so pipetting loss doesn't leave the last wells short.</p>
+        </div>
+      </div>
+      <div class="field" id="volume-field">
         <label for="volume" id="volume-label">Plating volume</label>
         <div class="row"><input id="volume" inputmode="decimal" placeholder="e.g. 10" value="10"><span class="unit">mL</span></div>
       </div>
@@ -185,7 +205,9 @@
       average: val("average"), viability: val("viability"), counter: val("counter"), dilution: val("dilution"),
       source: radio("source"), manualStock: val("manual-stock"), targetMode: radio("target"),
       targetDensity: val("target-density"), targetPerCm2: val("target-cm2"), vessel: val("vessel"),
-      volume: val("volume"), vesselCount: val("vessel-count")
+      volume: val("volume"), vesselCount: val("vessel-count"),
+      wells: val("wells"), cellsPerWell: val("cells-per-well"), wellVolume: val("well-volume"),
+      wellVolumeUnit: val("well-volume-unit"), overage: val("overage"), overageKind: val("overage-kind")
     };
   }
 
@@ -211,11 +233,13 @@
     });
     $("#clear-squares").disabled = !s.squares.some(function (q) { return q.live.trim() || q.dead.trim(); });
 
-    var area = s.targetMode === "densityArea", v = C.vessel(s.vessel);
+    var area = s.targetMode === "densityArea", byWells = s.targetMode === "wells", v = C.vessel(s.vessel);
     $("#stock-measured").hidden = s.source !== "measured";
     $("#stock-manual").hidden = s.source !== "manual";
-    $("#target-vol-field").hidden = area;
+    $("#target-vol-field").hidden = s.targetMode !== "densityVolume";
     $("#target-area-fields").hidden = !area;
+    $("#target-wells-fields").hidden = !byWells;
+    $("#volume-field").hidden = byWells;
     $("#vessel-count-label").textContent = "Number of " + v.noun + "s";
     $("#volume-label").textContent = area ? "Volume per " + v.noun : "Plating volume";
 
@@ -243,11 +267,16 @@
       var b = ["+ " + C.volumeML(p.mediaVolume) + " media → " + C.volumeML(p.stockVolume + p.mediaVolume) + " total, " + BM.format.scientific(p.cellsNeeded) + " cells"];
       var split = C.vesselSplitText(s, p, r.seeding.vesselsSeeded);
       if (split) b.push(split);
+      var wp = r.seeding.wells && r.seeding.wells.plan;
+      if (wp) b.push("At " + BM.format.scientific(wp.density) + " cells/mL. " + C.wellMixText(wp), C.wellPlateText(wp));
       $("#s-body").innerHTML = '<p class="hint">' + b.map(ui.esc).join("<br>") + "</p>";
     } else {
       $("#s-hero").textContent = "—";
       var msg = res ? "" : (area && r.seeding.vesselsSeeded == null
         ? "Enter how many " + v.noun + "s, as a whole number"
+        : byWells && r.seeding.wells.overageInvalid ? ""
+        : byWells && r.seeding.stockDensity != null && !r.seeding.wells.plan
+        ? "Enter wells (a whole number), cells and volume per well"
         : "Enter stock density and target above");
       $("#s-body").innerHTML = msg ? '<p class="empty">' + ui.esc(msg) + "</p>" : "";
     }

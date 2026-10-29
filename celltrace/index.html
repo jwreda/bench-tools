@@ -39,6 +39,7 @@
   </div>
 
   <form id="form" autocomplete="off">
+    <p class="note" id="handoff-note" hidden></p>
     <section class="card">
       <h2>1 · Dye and protocol</h2>
       <div class="field"><label for="dmso">DMSO per vial (µL)</label><input id="dmso" inputmode="decimal" value="20" placeholder="20"></div>
@@ -133,6 +134,18 @@
 
   // Unreadable or non-positive entries leave that protocol value alone (settingBinding).
   var persist = ui.persist(form, "celltrace");
+  // Opened from Magnetic sort: its isolated cells and wells, over whatever was saved here.
+  var handed = ui.prefill(form, { density: "density", volume: "volume", cpw: "cpw sw-cpw", wells: "wells sw-wells",
+    perwell: "perwell", excess: "excess" }, ["from", "stain"]);
+  if (typeof handed.density === "number") {
+    if (handed.stain === "wells") $("#amount-wells").checked = true;
+    var from = typeof handed.from === "string" && handed.from ? " (" + handed.from + ")" : "";
+    $("#handoff-note").textContent = "Filled in from Magnetic sort" + from + ": " + F.scientific(handed.density) + " live cells/mL in " +
+      F.volume(handed.volume / 1000) + (typeof handed.wells === "number" && typeof handed.cpw === "number"
+        ? ", for " + F.plain(handed.wells) + " wells of " + F.scientific(handed.cpw) + " cells" : "") + ". Check them before you start.";
+    $("#handoff-note").hidden = false;
+    form.dispatchEvent(new Event("change", { bubbles: true }));   // so the filled-in values are saved
+  }
   Object.keys(FIELDS).forEach(function (id) {
     var v = F.parse($("#" + id).value);
     if (v !== null && v > 0) settings[FIELDS[id]] = v;

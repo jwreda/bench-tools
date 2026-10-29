@@ -2,13 +2,14 @@
  * Count samples: passaging math. Ported from Sources/Core/PassagingEngine.swift and the
  * SerialCountingModel / FlaskPreset working volumes (Sources/Features/CellCounting/SerialCountingView.swift,
  * Sources/Core/TransfectionEngine.swift). Densities are cells/mL, volumes mL.
- * Counting math itself lives in ../cell-counting/engine.js (BM.cellCounting); this file only
- * needs assets/bench.js. Pure functions; index.html draws the page.
+ * Counting math itself lives in ../cell-counting/engine.js (BM.cellCounting), and so does the
+ * plating-by-wells math this file reuses for the "Per well" target. Pure functions; index.html draws the page.
  */
 (function (root) {
   "use strict";
   var BM = root.BM || require("../assets/bench.js");
   var F = BM.format;
+  var CC = BM.cellCounting || require("../cell-counting/engine.js");
   var MICROLITER_IN_ML = 1e-3;
   // 1 µL guardrail with a hair of slack, never on an exact zero (deep review 2026-10-28, P2).
   var BELOW_PIPETTABLE_ML = MICROLITER_IN_ML * (1 - 1e-9);
@@ -83,14 +84,21 @@
 
   // ---- model: state = { sampleCount, naming, samples: [{customName, densityText, countNote,
   //   viabilityText, finalVolumeText, amountText}] (storage; only the first sampleCount show),
-  //   sameTarget, amountMode: "totalCells"|"density", sharedFinalVolumeText, sharedAmountText }
-  function newSample() { return { customName: "", densityText: "", countNote: null, viabilityText: "", finalVolumeText: "", amountText: "" }; }
+  //   sameTarget, amountMode: "totalCells"|"density"|"wells", sharedFinalVolumeText, sharedAmountText,
+  //   and for "wells": sharedWellsText, sharedCellsPerWellText, sharedWellVolumeText, wellVolumeUnit
+  //   (per sample: wellsText, cellsPerWellText, wellVolumeText, wellVolumeUnit), overageText, overageKind (always shared) }
+  function newSample() {
+    return { customName: "", densityText: "", countNote: null, viabilityText: "", finalVolumeText: "", amountText: "",
+      wellsText: "", cellsPerWellText: "", wellVolumeText: "", wellVolumeUnit: "" };
+  }
   function newState() {
     var samples = [];
     for (var i = 0; i < SAMPLE_MAX; i++) samples.push(newSample());
     return {
       sampleCount: 3, naming: "sample", samples: samples, sameTarget: true, amountMode: "density",
-      sharedFinalVolumeText: "10", sharedAmountText: "100000"   // 1 × 10⁵ cells/mL in 10 mL
+      sharedFinalVolumeText: "10", sharedAmountText: "100000",   // 1 × 10⁵ cells/mL in 10 mL
+      sharedWellsText: "24", sharedCellsPerWellText: "50000", sharedWellVolumeText: "500",   // 5 × 10⁴ cells in 500 µL
+      wellVolumeUnit: "uL", overageText: String(CC.DEFAULT_OVERAGE_PERCENT), overageKind: "percent"
     };
   }
   function indices(st) {
@@ -119,8 +127,23 @@
     var v = F.parse(st.sameTarget ? st.sharedAmountText : st.samples[i].amountText, sep);
     return v == null ? null : { kind: st.amountMode, value: v };
   }
+  /** The "Per well" target for sample i: { plan, overageInvalid } (BM.cellCounting.wellTarget), null in other modes. */
+  function wellTarget(st, i, sep) {
+    if (st.amountMode !== "wells") return null;
+    var s = st.samples[i], shared = st.sameTarget;
+    return CC.wellTarget({
+      wells: shared ? st.sharedWellsText : s.wellsText, cellsPerWell: shared ? st.sharedCellsPerWellText : s.cellsPerWellText,
+      volume: shared ? st.sharedWellVolumeText : s.wellVolumeText, volumeUnit: shared ? st.wellVolumeUnit : s.wellVolumeUnit || st.wellVolumeUnit,
+      overage: st.overageText, overageKind: st.overageKind
+    }, sep);
+  }
   function sampleRecipe(st, i, sep) {
-    var d = density(st, i, sep), v = finalVolume(st, i, sep), a = amount(st, i, sep);
+    var d = density(st, i, sep);
+    if (st.amountMode === "wells") {
+      var w = wellTarget(st, i, sep).plan;
+      return d == null || w == null ? null : recipe(d, w.totalVolume, { kind: "totalCells", value: w.cellsNeeded });
+    }
+    var v = finalVolume(st, i, sep), a = amount(st, i, sep);
     if (d == null || v == null || a == null) return null;
     return recipe(d, v, a);
   }
@@ -128,6 +151,10 @@
   function splitTargets(st) {
     st.samples.forEach(function (s) {
       if (s.finalVolumeText === "" && s.amountText === "") { s.finalVolumeText = st.sharedFinalVolumeText; s.amountText = st.sharedAmountText; }
+      if (s.wellsText === "" && s.cellsPerWellText === "" && s.wellVolumeText === "") {
+        s.wellsText = st.sharedWellsText; s.cellsPerWellText = st.sharedCellsPerWellText; s.wellVolumeText = st.sharedWellVolumeText;
+        s.wellVolumeUnit = st.wellVolumeUnit;
+      }
     });
   }
 
@@ -165,6 +192,8 @@
   function sampleWarnings(st, i, sep) {
     var out = [], res = sampleRecipe(st, i, sep);
     if (st.samples[i].viabilityText.trim() !== "" && viability(st, i, sep) == null) out.push({ level: "warn", text: VIABILITY_TEXT });
+    var wt = wellTarget(st, i, sep);
+    if (wt) out = out.concat(CC.wellWarnings(wt));
     if (res && res.ok) res.recipe.warnings.forEach(function (w) { out.push({ level: "warn", text: warningText(w) }); });
     else if (res) out.push({ level: "error", text: tooDiluteText(res.failure.neededML) });
     return out;
@@ -185,6 +214,8 @@
         var r = res.recipe;
         line += " → " + mL(r.suspensionVolume) + " cells + " + mL(r.mediumVolume) + " medium = " + mL(r.finalVolume) +
           ", dilution factor " + factorText(r.dilutionFactor) + ", " + F.scientific(r.cells) + " cells";
+        var wp = wellTarget(st, i, sep);
+        if (wp && wp.plan) line += ". " + CC.wellMixText(wp.plan) + ". " + CC.wellPlateText(wp.plan);
       } else if (res) {
         line += " → too dilute (needs " + mL(res.failure.neededML) + " of suspension)";
       }
@@ -199,7 +230,7 @@
     recipe: recipe, genericName: genericName, matchingFlask: matchingFlask,
     newState: newState, newSample: newSample, indices: indices, name: name, hasCustomNames: hasCustomNames, resetNames: resetNames,
     density: density, viability: viability, countedSamples: countedSamples, finalVolume: finalVolume, amount: amount,
-    sampleRecipe: sampleRecipe, splitTargets: splitTargets,
+    sampleRecipe: sampleRecipe, wellTarget: wellTarget, splitTargets: splitTargets,
     mL: mL, mLParts: mLParts, factorText: factorText, dilutionText: dilutionText, warningText: warningText,
     tooDiluteText: tooDiluteText, detailText: detailText, sampleWarnings: sampleWarnings, copyText: copyText
   };
