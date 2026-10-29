@@ -241,3 +241,78 @@ test("SPEC: hemocytometer example reads 2×10⁶ cells/mL", () => {
   const s = model({ mode: "average", average: "100" });
   assert.equal(BM.format.scientific(run(s).count.summary.viableDensity), "2.0 × 10⁶");
 });
+
+// ---- plating by wells (web only; not in the app yet)
+
+const wellsState = (o) => Object.assign({
+  mode: "counter", stain: "trypanBlue", squares: [], counter: "1000000", viability: "", dilution: "2",
+  source: "measured", targetMode: "wells", wells: "24", cellsPerWell: "50000", wellVolume: "500",
+  wellVolumeUnit: "uL", overage: "10", overageKind: "percent"
+}, o);
+
+test("wells plan: 24 wells × 5e4 cells in 500 µL, +10%", () => {
+  const p = C.wellPlan(24, 5e4, 0.5, { kind: "percent", value: 10 });
+  close(p.mixWells, 26.4, 1e-12);
+  close(p.cellsNeeded, 1.32e6, 1e-6);
+  close(p.totalVolume, 13.2, 1e-12);
+  close(p.density, 1e5, 1e-9);
+  assert.equal(C.wellMixText(p), "Mix for 26.4 wells (24 + 10%)");
+  assert.equal(C.wellPlateText(p), "Plate 500.0 µL per well, 5.0 × 10⁴ cells each, into 24 wells");
+});
+
+test("wells plan: overage as extra wells, and none", () => {
+  const p = C.wellPlan(96, 1e4, 0.1, { kind: "wells", value: 4 });
+  assert.equal(p.mixWells, 100);
+  close(p.totalVolume, 10, 1e-12);
+  assert.equal(C.wellMixText(p), "Mix for 100 wells (96 + 4 extra)");
+  const none = C.wellPlan(6, 3e5, 2, { kind: "percent", value: 0 });
+  assert.equal(none.mixWells, 6);
+  assert.equal(C.wellMixText(none), "Mix for 6 wells (no overage)");
+});
+
+test("wells plan is null for a bad well count, cells, volume or overage", () => {
+  const pct = { kind: "percent", value: 10 };
+  assert.equal(C.wellPlan(0, 5e4, 0.5, pct), null);
+  assert.equal(C.wellPlan(2.5, 5e4, 0.5, pct), null);
+  assert.equal(C.wellPlan(10001, 5e4, 0.5, pct), null);
+  assert.equal(C.wellPlan(24, 0, 0.5, pct), null);
+  assert.equal(C.wellPlan(24, 5e4, 0, pct), null);
+  assert.equal(C.wellPlan(24, 5e4, 0.5, { kind: "percent", value: -5 }), null);
+});
+
+test("wells target reads µL or mL, a blank overage is none, a negative one is an error", () => {
+  const t = (o) => C.wellTarget(Object.assign({ wells: "24", cellsPerWell: "50000", volume: "500", volumeUnit: "uL", overage: "10", overageKind: "percent" }, o), SEP);
+  close(t({}).plan.volumePerWell, 0.5, 1e-15);
+  close(t({ volume: "0.5", volumeUnit: "mL" }).plan.volumePerWell, 0.5, 1e-15);
+  assert.equal(t({ overage: "" }).plan.mixWells, 24);
+  assert.equal(C.wellWarnings(t({ overage: "" }))[0].level, "warn");
+  assert.equal(C.wellWarnings(t({})).length, 0);
+  const neg = t({ overage: "-10" });
+  assert.equal(neg.plan, null);
+  assert.ok(neg.overageInvalid);
+  assert.deepEqual(C.wellWarnings(neg), [{ level: "error", text: C.OVERAGE_ERROR }]);
+});
+
+test("seeding by wells: stock and media for the whole mix", () => {
+  const r = C.compute(wellsState(), SEP);
+  assert.ok(r.seeding.result.ok);
+  const p = r.seeding.result.plan;
+  close(p.stockVolume, 1.32, 1e-12);
+  close(p.mediaVolume, 11.88, 1e-12);
+  close(r.seeding.totalPlatingVolume, 13.2, 1e-12);
+  assert.equal(r.seedingWarnings.length, 0);
+  assert.match(r.copyText, /Seeding: take 1\.320 mL stock \+ 11\.88 mL media → 13\.20 mL total \(1\.32 × 10⁶ cells\) at 1\.0 × 10⁵ cells\/mL\. Mix for 26\.4 wells \(24 \+ 10%\)\. Plate 500\.0 µL per well/);
+});
+
+test("seeding by wells: a stock too dilute for the per-well density fails", () => {
+  const r = C.compute(wellsState({ counter: "50000" }), SEP);
+  assert.equal(r.seeding.result.ok, false);
+  close(r.seeding.result.failure.neededML, 26.4, 1e-9);
+  assert.equal(r.seedingWarnings[0].level, "error");
+});
+
+test("seeding by wells: a negative overage gives no recipe and an error", () => {
+  const r = C.compute(wellsState({ overage: "-1" }), SEP);
+  assert.equal(r.seeding.result, null);
+  assert.equal(r.seedingWarnings[0].text, C.OVERAGE_ERROR);
+});

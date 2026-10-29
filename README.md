@@ -64,6 +64,18 @@ counts, MW). A line under it reads the number back: "= 2.5 × 10⁶ = 2,500,000 
 Set `BM.APP_STORE_URL` in `assets/bench.js` once BenchMate is live; every page's
 "Coming soon to the App Store" note becomes a "Get BenchMate on the App Store" button.
 
+## Web-only additions
+
+Not in the app yet, so there is no Swift to match; port them to the app when it catches up:
+
+- Plating by wells (1.3.0): `wellPlan` / `wellTarget` in `cell-counting/engine.js`, used by the
+  Per well target in Cell counting and Count samples, and the Plate card in Magnetic sort
+  (`plating` in `magnetic-sort/engine.js`).
+- Hand-offs between tools (1.3.0): `BM.handoff` and `BM.ui.prefill` in `assets/bench.js`. A tool
+  links to the next with its numbers in the query string, and the next page fills its fields
+  once and drops the query. Magnetic sort → CellTrace uses `density`, `volume`, `cpw`, `wells`,
+  `perwell` (µL), `excess` (%), `stain=wells` and `from` (the sort's name).
+
 ## Source
 
 Ported from the BenchMate iOS app (`phase2/shareable` at b0a1480, 2026-10-28). When the app's

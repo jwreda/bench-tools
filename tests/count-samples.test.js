@@ -165,3 +165,45 @@ test("SPEC: 1e6 cells from a 2e6 stock in 10 mL", () => {
   const r = rec(2e6, 10, dens(1e5));
   assert.equal(BM.format.volume(r.suspensionVolume / 1000), "500.0 µL");
 });
+
+// ---- plating by wells (web only; not in the app yet)
+
+test("per well target: suspension and medium for wells × cells × volume + overage", () => {
+  const st = P.newState();
+  st.amountMode = "wells";
+  st.samples[0].densityText = "2000000";
+  const res = P.sampleRecipe(st, 0, SEP);
+  assert.ok(res.ok);
+  close(res.recipe.suspensionVolume, 0.66, 1e-12);
+  close(res.recipe.finalVolume, 13.2, 1e-12);
+  close(res.recipe.finalDensity, 1e5, 1e-6);
+  assert.match(P.copyText(st, SEP), /Mix for 26\.4 wells \(24 \+ 10%\)\. Plate 500\.0 µL per well/);
+});
+
+test("per well target per sample, with its own unit and the shared overage", () => {
+  const st = P.newState();
+  st.amountMode = "wells";
+  st.sameTarget = false;
+  P.splitTargets(st);
+  assert.equal(st.samples[1].wellsText, "24");
+  assert.equal(st.samples[1].wellVolumeUnit, "uL");
+  Object.assign(st.samples[1], { densityText: "1000000", wellsText: "6", cellsPerWellText: "300000", wellVolumeText: "2", wellVolumeUnit: "mL" });
+  st.overageText = "1";
+  st.overageKind = "wells";
+  const r = P.sampleRecipe(st, 1, SEP).recipe;
+  close(r.cells, 2.1e6, 1e-6);
+  close(r.finalVolume, 14, 1e-12);
+  close(r.suspensionVolume, 2.1, 1e-12);
+  close(P.wellTarget(st, 0, SEP).plan.volumePerWell, 0.5, 1e-15);   // sample 1 keeps 500 µL
+});
+
+test("per well target: no overage warns, a negative one is an error", () => {
+  const st = P.newState();
+  st.amountMode = "wells";
+  st.samples[0].densityText = "2000000";
+  st.overageText = "0";
+  assert.equal(P.sampleWarnings(st, 0, SEP)[0].level, "warn");
+  st.overageText = "-3";
+  assert.equal(P.sampleRecipe(st, 0, SEP), null);
+  assert.equal(P.sampleWarnings(st, 0, SEP)[0].level, "error");
+});

@@ -3,7 +3,7 @@
  * Sources/Core/EasySepEngine.swift (kits, resuspension, separation, two-sort schedule, live
  * run) and the derived values of EasySepModel / EasySepView (sample draft, result lines,
  * reagent table, step list). Pure functions; index.html draws the page.
- * Needs assets/bench.js loaded first.
+ * Needs assets/bench.js and ../cell-counting/engine.js (plating by wells) loaded first.
  *
  * Volumes are mL, reagent doses µL per mL. Times are seconds; a "date" in the live run is
  * any number of seconds on one shared clock (the page passes Date.now() / 1000).
@@ -12,6 +12,7 @@
   "use strict";
   var BM = root.BM || require("../assets/bench.js");
   var F = BM.format;
+  var CC = BM.cellCounting || require("../cell-counting/engine.js");
 
   var TARGET_DENSITY = 1e8; // cells/mL every kit asks for
   // A split of more than this many tubes means a typo (e.g. 1e9 mL), not a plan. The app
@@ -457,13 +458,91 @@
     return "Into a new tube in one motion; don't blot";
   }
 
+  // ---------------------------------------------------------------- plating the isolated cells
+  // Web only so far (not in the app): the isolated cells into wells, with the Per well math of
+  // Cell counting (BM.cellCounting.wellTarget / seedingPlan), and a hand-off to CellTrace.
+
+  /**
+   * t = the wells fields as typed (see BM.cellCounting.wellTarget). Uses the isolated count
+   * when there is one. → { target, result: seedingPlan() result | null, haveCells, wellsPossible }
+   * wellsPossible is set when the mix takes more isolated cells than there are (else null).
+   */
+  function plating(s, t) {
+    var target = CC.wellTarget(t);
+    var d = number(s.isolatedDensityText);
+    var out = { target: target, result: null, haveCells: null, wellsPossible: null };
+    if (d === null || !target.plan) return out;
+    var p = target.plan;
+    out.result = CC.seedingPlan(d, p.cellsNeeded, p.totalVolume);
+    var v = number(s.isolatedVolumeText);
+    if (v !== null) {
+      out.haveCells = d * v;
+      if (p.cellsNeeded > out.haveCells * (1 + 1e-9)) {
+        var perWell = p.overage.kind === "wells" ? null : p.cellsPerWell * (1 + p.overage.value / 100);
+        var n = perWell !== null ? out.haveCells / perWell : out.haveCells / p.cellsPerWell - p.overage.value;
+        out.wellsPossible = Math.max(Math.floor(n + 1e-9), 0);
+      }
+    }
+    return out;
+  }
+
+  /** The Plate result card: { value, unit, lines } or null; blocked: { title, wouldNeed } when it can't be made. */
+  function describePlating(pl) {
+    var res = pl.result, p = pl.target.plan;
+    if (!res) return null;
+    if (!res.ok) {
+      return { blocked: { title: "The isolated cells are too dilute for this plating.",
+        wouldNeed: { label: "Would need", value: mL(res.failure.neededML) + " of cells",
+          note: "More than the " + mL(p.totalVolume) + " mix. Spin down and resuspend in less medium, then recount." } } };
+    }
+    var q = res.plan, v = F.volumeParts(q.stockVolume / 1000);
+    var card = { value: v.value, unit: v.unit + " cells", lines: [
+      "+ " + mL(q.mediaVolume) + " medium → " + mL(q.stockVolume + q.mediaVolume) + " total, " + F.scientific(q.cellsNeeded) + " cells",
+      "At " + F.scientific(p.density) + " cells/mL. " + CC.wellMixText(p),
+      CC.wellPlateText(p)
+    ] };
+    if (pl.wellsPossible !== null) {
+      card.blocked = { title: "Not enough isolated cells for " + p.wells + " wells.",
+        wouldNeed: { label: "Would need", value: F.scientific(q.cellsNeeded) + " cells",
+          note: "You have " + F.scientific(pl.haveCells) + ": enough for " + pl.wellsPossible + " well" + (pl.wellsPossible === 1 ? "" : "s") + " with this overage." } };
+    }
+    return card;
+  }
+
+  /** Warnings under the Plate card: the overage, and the sub-µL check. */
+  function platingWarnings(pl) {
+    var w = CC.wellWarnings(pl.target);
+    if (pl.result && pl.result.ok) pl.result.plan.warnings.forEach(function (x) { w.push({ level: "warn", text: CC.seedingWarningText(x) }); });
+    return w;
+  }
+
+  /**
+   * The query string that opens CellTrace with this sort filled in: the isolated count as the
+   * cells to stain, and the wells (as "stain for wells" and the plating step). Null without a count.
+   */
+  function celltraceQuery(s, pl, label) {
+    var d = number(s.isolatedDensityText), v = number(s.isolatedVolumeText);
+    if (d === null || v === null) return null;
+    var q = { density: d, volume: v, from: label };
+    var p = pl && pl.target.plan;
+    if (p) {
+      q.cpw = p.cellsPerWell;
+      q.wells = p.wells;
+      q.perwell = +(p.volumePerWell * 1000).toPrecision(12);   // µL
+      q.excess = +(p.overage.kind === "wells" ? p.overage.value / p.wells * 100 : p.overage.value).toPrecision(12);
+      q.stain = "wells";
+    }
+    return BM.handoff.query(q);
+  }
+
   var api = {
     TARGET_DENSITY: TARGET_DENSITY, MAX_TUBES: MAX_TUBES, MAGNETS: MAGNETS, LINES: LINES, MODES: MODES, KITS: KITS,
     kit: kit, sampleRange: sampleRange, topUpVolume: topUpVolume,
     resuspension: resuspension, separation: separation, actions: actions, schedule: schedule, liveRun: liveRun,
     number: number, sampleOf: sampleOf, suggestMode: suggestMode,
     describeResuspension: describeResuspension, blockedResuspension: blockedResuspension, separationWarnings: separationWarnings, splitNote: splitNote,
-    reagentRows: reagentRows, singleSteps: singleSteps, amountsText: amountsText
+    reagentRows: reagentRows, singleSteps: singleSteps, amountsText: amountsText,
+    plating: plating, describePlating: describePlating, platingWarnings: platingWarnings, celltraceQuery: celltraceQuery
   };
   BM.easysep = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
