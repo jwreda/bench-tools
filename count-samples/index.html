@@ -5,26 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Count samples · BenchMate</title>
 <meta name="description" content="Count several cell samples, then work out how much suspension and medium to passage each into, as volumes and a dilution factor.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap">
+<script>
+  // Before first paint: a saved light/dark choice (none = follow the system), and reveals on.
+  document.documentElement.classList.add("js");
+  try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 <link rel="stylesheet" href="../assets/bench.css">
 <style>
   [hidden] { display: none !important; }
-  .unit { align-self: center; color: var(--muted); }
+  .unit { align-self: center; color: var(--text-3); }
   .bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-  .chips button { font-size: 14px; padding: 6px 10px; min-height: 40px; background: transparent; color: var(--accent); border: 1px solid var(--line); }
-  .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .chips button { font-size: 14px; padding: 6px 14px; min-height: 40px; border-radius: var(--radius-full); background: var(--surface); color: var(--text-2); border: 1px solid var(--border-strong); box-shadow: none; transition: transform var(--dur) var(--ease-spring), background var(--dur-fast), color var(--dur-fast); }
+  .chips button[aria-pressed="true"] { background: var(--btn-bg); color: var(--btn-text); border-color: transparent; }
+  @media (hover: hover) { .chips button:hover { transform: scale(1.05); } }
   .sample h3 { font-size: 17px; margin: 0 0 8px; }
   .sample details { margin: 4px 0 0; }
   .check-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
   .check-row input { width: 22px; height: 22px; }
-  .meta { color: var(--muted); font-size: 14px; }
+  .meta { color: var(--text-3); font-size: 14px; }
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="inner">
+    <a class="wordmark" href="../index.html">BenchMate tools</a>
+    <a class="back" href="../index.html">All tools</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch theme">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
 <main>
-  <header class="top"><a href="../index.html">‹ All tools</a></header>
-  <h1>Count samples</h1>
-  <p class="lede">Count several samples, then passage each.</p>
+  <div class="page-head">
+    <p class="eyebrow">Cell culture</p>
+    <h1>Count samples</h1>
+    <p class="lede">Count several samples, then passage each.</p>
+  </div>
 
   <form id="form" autocomplete="off">
     <h2>Samples</h2>
@@ -55,9 +76,9 @@
       </div>
       <div id="shared-target">
         <div class="field">
-          <div class="label" style="font-size:15px;color:var(--muted);margin-bottom:4px">Flask size (fills to a quarter)</div>
+          <div class="label">Flask size (fills to a quarter)</div>
           <div class="chips" id="shared-chips"></div>
-          <label for="shared-volume" style="display:block;font-size:15px;color:var(--muted);margin-bottom:4px">Final volume</label>
+          <label for="shared-volume">Final volume</label>
           <div class="row"><input id="shared-volume" inputmode="decimal" placeholder="e.g. 10" value="10"><span class="unit">mL</span></div>
         </div>
         <div class="field">

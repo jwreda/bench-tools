@@ -1,36 +1,156 @@
-/* BenchMate web — one stylesheet for every tool. Phone first; plain HTML elements. */
+/* BenchMate web — one stylesheet for every tool. Phone first; plain HTML elements.
+   Look and feel follow the joereda.phd style guide (docs/style-guide.md): warm paper,
+   forest green for actions, caramel for labels, wisteria only for hover glass and the
+   page wash. Build with the role tokens (--bg, --surface, --text, ...), not raw shades. */
+
+/* ===================================================================== tokens */
 :root {
-  --bg: #f6f5f2;
-  --card: #ffffff;
-  --text: #1c1c1e;
-  --muted: #6b6b70;
-  --line: #dcdad5;
-  --accent: #5b4bb7;
-  --accent-text: #ffffff;
-  --warn-bg: #fff4d6;
-  --warn-text: #6b4a00;
-  --error-bg: #fde3e1;
-  --error-text: #8a1c12;
-  --result-bg: #eeebfa;
-  color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141416;
-    --card: #1f1f22;
-    --text: #f2f2f4;
-    --muted: #a0a0a8;
-    --line: #36363b;
-    --accent: #a99cf0;
-    --accent-text: #141416;
-    --warn-bg: #3a2f10;
-    --warn-text: #ffd98a;
-    --error-bg: #3d1714;
-    --error-text: #ffb4ab;
-    --result-bg: #29253d;
-  }
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Raw palette: forest green (primary) */
+  --green-50: #f6f7f4;  --green-100: #e8ebe3; --green-200: #d1d9c7;
+  --green-300: #a8b896; --green-400: #7d9465; --green-500: #5c7a45;
+  --green-600: #476135; --green-700: #384d2a; --green-800: #2d3d23;
+  --green-900: #1f2a18;
+  /* Caramel (accent: labels, hairlines, shadows) */
+  --caramel-50: #fdfaf6;  --caramel-100: #f7efe3; --caramel-200: #eddcca;
+  --caramel-300: #dfc4a8; --caramel-400: #c9a47a; --caramel-500: #a67c52;
+  --caramel-600: #8b6342; --caramel-700: #6f4d34; --caramel-800: #553b28;
+  --caramel-900: #3d2a1d;
+  /* Warm neutrals (paper and ink) */
+  --warm-50: #fefdfb;  --warm-100: #faf7f2; --warm-200: #f5f0e8;
+  --warm-300: #d4ccc2; --warm-400: #9c9287; --warm-500: #776e66;
+  --warm-600: #5a524b; --warm-700: #3d3835; --warm-800: #2c2825;
+  --warm-900: #1f1c1a;
+  /* Wisteria (signature, special moments only) */
+  --wisteria-50: #f9f4fb;  --wisteria-100: #eee2f4; --wisteria-200: #e0c8e9;
+  --wisteria-300: #cba3db; --wisteria-400: #b48bc7; --wisteria-500: #9666b0;
+  --wisteria-600: #7a4f93; --wisteria-700: #613c76; --wisteria-800: #482b58;
+  --wisteria-900: #301c3b;
+  /* Pastel category colours: pastel + deep ink partner */
+  --celery: #A4D062;   --celery-deep: #587a2a;
+  --porsche: #E2AD64;  --porsche-deep: #9a641f;
+  --wewak: #EA98B3;    --wewak-deep: #a8405f;
+  --wisteria: #CBA3DB; --wisteria-deep: #7a4f93;
+  --sky: #7eb3d4;      --sky-deep: #4a7c9b;
+
+  /* Roles: light */
+  --bg: var(--warm-50);
+  --bg-subtle: var(--warm-100);
+  --surface: #ffffff;
+  --text: var(--warm-800);
+  --text-2: var(--warm-600);
+  --text-3: var(--warm-500);
+  --border: var(--caramel-100);
+  --border-strong: var(--caramel-200);
+  --link: var(--green-600);
+  --brand: var(--green-700);
+  --btn-bg: var(--green-600);
+  --btn-bg-hover: var(--green-700);
+  --btn-text: #ffffff;
+  --btn-outline: var(--green-600);
+  --label: var(--caramel-500);
+  --badge-bg: var(--caramel-50);
+  --nav-bg: rgb(254 253 251 / 0.95);
+  --focus: var(--green-500);
+  --tag-ink-mix: 0%;
+  --tag-fill: 22%;
+  --tag-edge: 70%;
+  --tag-on-solid: #ffffff;
+  /* Tool roles (not in the site, derived from it) */
+  --field-bg: var(--warm-50);
+  --field-border: var(--caramel-300);  /* form fields need a visible edge */
+  --unit: var(--caramel-600);          /* units next to inputs: caramel, but readable */
+  --result-bg: #f1f4ec;                /* the answer: solid, faintly green (between green-50 and -100) */
+  --result-edge: var(--green-200);
+  --solved-bg: var(--green-100);
+  --warn-ink: var(--porsche-deep);
+  --warn-bg: color-mix(in srgb, var(--porsche) 18%, transparent);
+  --error-ink: var(--wewak-deep);
+  --error-bg: color-mix(in srgb, var(--wewak) 18%, transparent);
+
+  /* Glass (hover only; never behind numbers) */
+  --glass-hover-bg: linear-gradient(135deg,
+      rgb(238 226 244 / 0.7) 0%, rgb(255 255 255 / 0.85) 50%, rgb(238 226 244 / 0.7) 100%);
+  --glass-hover-edge: var(--wisteria-200);
+  --glass-hover-shadow: 0 8px 24px -4px rgb(122 79 147 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  --hover-ink: var(--wisteria-700);
+  --btn-hover-shadow: 0 4px 16px rgb(92 122 69 / 0.3), 0 6px 28px -6px rgb(150 102 176 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.2);
+
+  /* Page wash behind the page header */
+  --wash: radial-gradient(ellipse 85% 80% at 90% 25%, hsl(285 35% 60% / 0.14) 0%, transparent 60%),
+          radial-gradient(ellipse 65% 60% at 5% 50%, hsl(285 35% 60% / 0.08) 0%, transparent 50%);
+
+  /* Shadows (warm, caramel-tinted) */
+  --shadow-sm: 0 2px 8px -2px rgb(166 124 82 / 0.08);
+  --shadow: 0 4px 14px -2px rgb(166 124 82 / 0.12);
+  --shadow-lg: 0 8px 24px -4px rgb(166 124 82 / 0.15);
+
+  /* Shape, space, motion */
+  --radius-sm: 4px;  --radius: 8px;  --radius-lg: 12px;  --radius-full: 9999px;
+  --gutter: clamp(16px, 5vw, 24px);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --dur-fast: 200ms;  --dur: 300ms;  --dur-reveal: 450ms;
+
+  color-scheme: light;
 }
 
+/* Dark roles. Written once for the system setting and once for the manual toggle;
+   keep the two blocks identical. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: var(--warm-900);  --bg-subtle: var(--warm-800);  --surface: var(--warm-800);
+    --text: var(--warm-100);  --text-2: var(--warm-300);  --text-3: var(--warm-400);
+    --border: var(--warm-700);  --border-strong: var(--warm-700);
+    --link: var(--green-400);  --brand: var(--green-400);
+    --btn-outline: var(--green-400);
+    --label: var(--caramel-400);  --badge-bg: var(--warm-700);
+    --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--green-400);
+    --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
+    --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
+    --result-bg: #252b1f;  --result-edge: var(--green-800);  --solved-bg: #2f3a26;
+    --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
+    --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
+    --glass-hover-bg: linear-gradient(135deg,
+        rgb(48 28 59 / 0.5) 0%, rgb(45 42 40 / 0.7) 50%, rgb(48 28 59 / 0.5) 100%);
+    --glass-hover-edge: var(--wisteria-700);
+    --glass-hover-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(203 163 219 / 0.15);
+    --hover-ink: var(--wisteria-300);
+    --wash: radial-gradient(ellipse 85% 80% at 90% 25%, hsl(285 40% 45% / 0.20) 0%, transparent 60%),
+            radial-gradient(ellipse 65% 60% at 5% 50%, hsl(285 40% 45% / 0.12) 0%, transparent 50%);
+    --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.25);
+    --shadow: 0 4px 14px -2px rgb(0 0 0 / 0.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: var(--warm-900);  --bg-subtle: var(--warm-800);  --surface: var(--warm-800);
+  --text: var(--warm-100);  --text-2: var(--warm-300);  --text-3: var(--warm-400);
+  --border: var(--warm-700);  --border-strong: var(--warm-700);
+  --link: var(--green-400);  --brand: var(--green-400);
+  --btn-outline: var(--green-400);
+  --label: var(--caramel-400);  --badge-bg: var(--warm-700);
+  --nav-bg: rgb(31 28 26 / 0.95);  --focus: var(--green-400);
+  --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
+  --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
+  --result-bg: #252b1f;  --result-edge: var(--green-800);  --solved-bg: #2f3a26;
+  --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
+  --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
+  --glass-hover-bg: linear-gradient(135deg,
+      rgb(48 28 59 / 0.5) 0%, rgb(45 42 40 / 0.7) 50%, rgb(48 28 59 / 0.5) 100%);
+  --glass-hover-edge: var(--wisteria-700);
+  --glass-hover-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(203 163 219 / 0.15);
+  --hover-ink: var(--wisteria-300);
+  --wash: radial-gradient(ellipse 85% 80% at 90% 25%, hsl(285 40% 45% / 0.20) 0%, transparent 60%),
+          radial-gradient(ellipse 65% 60% at 5% 50%, hsl(285 40% 45% / 0.12) 0%, transparent 50%);
+  --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.25);
+  --shadow: 0 4px 14px -2px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+/* ===================================================================== base */
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .card:has(> div:only-child:empty) { display: none; }
@@ -39,94 +159,267 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 400 16px/1.6 var(--font-sans);
+  transition: background-color var(--dur-fast), color var(--dur-fast);
 }
-main { max-width: 640px; margin: 0 auto; padding: 12px 16px 48px; }
+main { max-width: 42rem; margin: 0 auto; padding: 8px var(--gutter) 56px; }
+main.wide { max-width: 48rem; }
 
-header.top { display: flex; align-items: baseline; gap: 12px; padding: 8px 0 4px; }
-header.top a { color: var(--accent); text-decoration: none; font-size: 15px; }
-h1 { font-size: 26px; margin: 4px 0 2px; }
-h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 24px 0 8px; font-weight: 600; }
-p.lede { color: var(--muted); margin: 0 0 12px; }
+h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.025em; line-height: 1.25; }
+h1 { font-size: 36px; margin: 4px 0 6px; color: var(--text); }
+/* Section titles: the caramel eyebrow label. */
+h2 { font: 500 14px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--label); margin: 32px 0 12px; }
+h3 { font-size: 19px; }
+p.lede { color: var(--text-2); margin: 0 0 8px; max-width: 42rem; }
+strong { font-weight: 600; }
+code { background: var(--bg-subtle); border-radius: var(--radius-sm); padding: 0 4px; font-size: .92em; }
 
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+a { color: var(--link); text-decoration: none; }
+/* Underline that draws in from the left on hover. */
+a:not(.button):not(.row-link):not(.wordmark) {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px; background-position: 0 100%; background-repeat: no-repeat;
+  transition: background-size var(--dur) ease-out;
+}
+a:not(.button):not(.row-link):not(.wordmark):hover { background-size: 100% 1px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* Eyebrow label (also used inline). */
+.eyebrow { font: 500 14px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--label); margin: 0; }
+
+/* ===================================================================== top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  border-bottom: 1px solid var(--border-strong);
+}
+.topbar .inner {
+  max-width: 48rem; margin: 0 auto; padding: 0 var(--gutter);
+  display: flex; align-items: center; gap: 16px; min-height: 56px;
+}
+.wordmark { font: 600 20px/1 var(--font-serif); letter-spacing: -0.02em; color: var(--brand); margin-right: auto; }
+.topbar .back { font-size: 15px; font-weight: 500; color: var(--text-2); }
+.topbar .back:hover { color: var(--link); }
+.theme-toggle {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px; min-height: 0; padding: 0;
+  background: transparent; color: var(--text-2);
+  border: 0; border-radius: var(--radius); box-shadow: none;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+}
+.theme-toggle svg { width: 20px; height: 20px; }
+.theme-toggle .sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
+}
+@media (hover: hover) { .theme-toggle:hover { background: var(--bg-subtle); color: var(--text); } }
+
+/* ===================================================================== page header */
+.page-head { position: relative; padding: 28px 0 8px; }
+.page-head::before {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  left: 50%; transform: translateX(-50%); width: 100vw; top: -40px; bottom: -60px;
+  background: var(--wash);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30px, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 30px, #000 calc(100% - 40px), transparent 100%);
+}
+.page-head > * { position: relative; z-index: 1; }
+.page-head .eyebrow { margin-bottom: 6px; }
+body { overflow-x: hidden; } /* the wash is 100vw wide; never let it scroll sideways */
+
+/* ===================================================================== cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin: 16px 0;
+}
 .card > :first-child { margin-top: 0; }
 .card > :last-child { margin-bottom: 0; }
+.card h2 { margin: 0 0 14px; }
+@media (max-width: 420px) { .card, .result { padding: 16px; } }
 
+/* ===================================================================== fields */
 /* A labelled row: label on top, then the number input and its unit picker side by side. */
-.field { margin: 0 0 12px; }
-.field > label, .field > .label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 4px; }
+.field { margin: 0 0 14px; }
+.field > label, .field > .label { display: block; font-size: 14px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
 .row { display: flex; gap: 8px; align-items: stretch; }
 .row > input { flex: 1 1 auto; min-width: 0; }
 .row > select { flex: 0 0 auto; }
+.row > .hint, .unit { align-self: center; color: var(--unit); font-weight: 500; white-space: nowrap; }
 
 input[type="text"], input[type="number"], input:not([type]), select, textarea {
-  font: inherit;
+  font: 400 16px/1.4 var(--font-sans);  /* 16px or larger, or iOS Safari zooms in */
+  font-variant-numeric: tabular-nums;
   color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
   padding: 10px 12px;
   min-height: 44px;
   width: 100%;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+select {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23a67c52' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 12px 8px;
 }
 .row > select { width: auto; }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-input.solved { background: var(--result-bg); font-weight: 600; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
+input::placeholder { color: var(--text-3); }
+input.solved { background: var(--solved-bg); border-color: var(--result-edge); font-weight: 600; }
 input[readonly] { cursor: default; }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--btn-bg); }
 
 /* Segmented choice built from radio buttons. */
-.segments { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0 0 12px; }
-.segments label { flex: 1; text-align: center; padding: 10px 6px; min-height: 44px; cursor: pointer; font-size: 15px; border-left: 1px solid var(--line); }
-.segments label:first-child { border-left: 0; }
+.segments { display: flex; padding: 3px; gap: 3px; background: var(--bg-subtle); border: 1px solid var(--border-strong); border-radius: var(--radius); margin: 0 0 16px; }
+.segments label { flex: 1; display: grid; place-items: center; text-align: center; padding: 8px 6px; min-height: 40px; cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text-2); border-radius: 6px; transition: background-color var(--dur-fast), color var(--dur-fast); }
 .segments input { position: absolute; opacity: 0; pointer-events: none; }
-.segments label:has(input:checked) { background: var(--accent); color: var(--accent-text); font-weight: 600; }
-.segments label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -3px; }
+.segments label:has(input:checked) { background: var(--btn-bg); color: var(--btn-text); box-shadow: var(--shadow-sm); }
+.segments label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
-label.check input { width: 22px; height: 22px; }
+label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; font-size: 15px; color: var(--text-2); }
+label.check input { width: 20px; height: 20px; }
 
+/* ===================================================================== buttons */
 button, .button {
-  font: inherit; font-size: 16px; font-weight: 600;
-  display: inline-block; text-align: center; text-decoration: none;
-  background: var(--accent); color: var(--accent-text);
-  border: 0; border-radius: 10px; padding: 10px 16px; min-height: 44px; cursor: pointer;
+  font: 500 16px/1.5 var(--font-sans);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  text-align: center; text-decoration: none;
+  background: var(--btn-bg); color: var(--btn-text);
+  border: 0; border-radius: var(--radius);
+  padding: 10px 20px; min-height: 44px; cursor: pointer;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
+  transition: transform var(--dur-fast) var(--ease-spring), background var(--dur-fast), box-shadow var(--dur-fast), color var(--dur-fast);
 }
-button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
-.button.disabled { opacity: .55; cursor: default; }
+button:active, .button:active { background: var(--btn-bg-hover); transform: none; }
+button.secondary {
+  background: transparent; color: var(--btn-outline);
+  border: 2px solid var(--btn-outline); box-shadow: none;
+  padding: 8px 18px;
+}
+button[disabled], .button.disabled { opacity: .5; cursor: default; }
+@media (hover: hover) {
+  :where(button:not([disabled]):not(.secondary):not(.theme-toggle), a.button):hover {
+    transform: scale(1.02) translateY(-1px);
+    background: linear-gradient(135deg, rgb(92 122 69 / 0.95) 0%, rgb(92 122 69) 50%, rgb(92 122 69 / 0.95) 100%);
+    box-shadow: var(--btn-hover-shadow);
+  }
+  :where(button.secondary:not([disabled])):hover {
+    transform: scale(1.02) translateY(-1px);
+    background: var(--glass-hover-bg);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: var(--glass-hover-shadow);
+  }
+}
 
-/* The answer. */
-.result { background: var(--result-bg); border-radius: 14px; padding: 14px; margin: 12px 0; }
-.result .hero { font-size: 34px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
-.result .hero small { font-size: 20px; font-weight: 600; color: var(--muted); }
-.result .caption { color: var(--muted); font-size: 15px; }
-.result .empty { color: var(--muted); }
+/* ===================================================================== the answer */
+/* Solid surface, never glass: numbers stay crisp. Updates are instant, never animated. */
+.result {
+  background: var(--result-bg);
+  border: 1px solid var(--result-edge);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin: 16px 0;
+}
+.result .hero { font: 600 34px/1.15 var(--font-sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 2px 0 8px; color: var(--text); }
+.result .hero small { font-size: 20px; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.result .caption { font: 500 13px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--label); }
+.result .empty { color: var(--text-2); }
+.result h2 { margin-top: 0; }
 
 table.recipe { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-table.recipe th, table.recipe td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.recipe th, table.recipe td { text-align: left; padding: 9px 4px; border-bottom: 1px solid var(--border-strong); vertical-align: top; }
+table.recipe th { font: 500 13px/1.4 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--label); }
 table.recipe td.num, table.recipe th.num { text-align: right; white-space: nowrap; }
 table.recipe tr:last-child td { border-bottom: 0; }
 .scroll-x { overflow-x: auto; }
 
-.note { border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 15px; }
-.note.warn { background: var(--warn-bg); color: var(--warn-text); }
-.note.error { background: var(--error-bg); color: var(--error-text); }
-.sci-preview { color: var(--muted); font-size: 14px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
-.sci-preview.bad { color: var(--error-text); }
-.hint { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
+/* Warnings: warm and muted, always with a symbol and words. */
+.note { border-radius: var(--radius); padding: 10px 12px; margin: 10px 0; font-size: 15px; border-left: 3px solid currentColor; }
+.note.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.note.error { background: var(--error-bg); color: var(--error-ink); }
+.note a { color: inherit; font-weight: 600; }
+.sci-preview { color: var(--text-2); font-size: 14px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.sci-preview.bad { color: var(--error-ink); }
+.hint { color: var(--text-3); font-size: 14px; margin: 6px 0 0; }
 
 details { margin: 12px 0; }
-summary { cursor: pointer; color: var(--accent); min-height: 32px; }
+summary { cursor: pointer; color: var(--link); font-weight: 500; min-height: 32px; }
 
-/* Home list. */
-ul.tools { list-style: none; padding: 0; margin: 0; }
-ul.tools li { margin: 0 0 8px; }
-ul.tools a { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; color: var(--text); text-decoration: none; }
-ul.tools a strong { display: block; font-size: 18px; }
-ul.tools a span { color: var(--muted); font-size: 15px; }
+/* ===================================================================== home list */
+ul.tools { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.row-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  transition: all var(--dur);
+}
+.row-link .title { display: block; font-weight: 500; font-size: 17px; line-height: 1.35; }
+.row-link .desc { display: block; color: var(--text-2); font-size: 15px; line-height: 1.45; margin-top: 2px; }
+.row-link .tag { margin-top: 8px; }
+.row-link .arrow { flex: 0 0 auto; color: var(--caramel-300); transition: transform var(--dur), color var(--dur); }
+.row-link .arrow svg { width: 18px; height: 18px; display: block; }
+@media (hover: hover) {
+  .row-link:hover {
+    transform: translateX(4px);
+    border-color: var(--glass-hover-edge);
+    background: var(--glass-hover-bg);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    box-shadow: var(--glass-hover-shadow);
+  }
+  .row-link:hover .title, .row-link:hover .arrow { color: var(--hover-ink); }
+  .row-link:hover .arrow { transform: translateX(4px); }
+}
 
-.promo { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 28px 0 12px; }
-.promo p { margin: 0 0 10px; }
-footer { color: var(--muted); font-size: 13px; margin-top: 16px; }
-footer a { color: var(--muted); }
-footer.version { margin-top: 24px; }
+/* Pastel category tag: deep ink on a faint pastel fill (light), pastel ink (dark). */
+.tag {
+  --tag: var(--sky); --tag-deep: var(--sky-deep);
+  display: inline-flex; align-items: center; white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font: 500 12px/1rem var(--font-sans);
+  color: color-mix(in srgb, var(--tag) var(--tag-ink-mix), var(--tag-deep));
+  background: color-mix(in srgb, var(--tag) var(--tag-fill), transparent);
+  border: 1px solid color-mix(in srgb, var(--tag) var(--tag-edge), transparent);
+}
+.tag.celery   { --tag: var(--celery);   --tag-deep: var(--celery-deep); }
+.tag.porsche  { --tag: var(--porsche);  --tag-deep: var(--porsche-deep); }
+.tag.wewak    { --tag: var(--wewak);    --tag-deep: var(--wewak-deep); }
+.tag.wisteria { --tag: var(--wisteria); --tag-deep: var(--wisteria-deep); }
+.tag.sky      { --tag: var(--sky);      --tag-deep: var(--sky-deep); }
+
+.promo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 20px; margin: 40px 0 16px; }
+.promo p { margin: 0 0 14px; color: var(--text-2); }
+.promo strong { color: var(--text); }
+
+footer { color: var(--text-3); font-size: 13px; margin-top: 20px; }
+footer a { color: var(--label); }
+footer.version { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border-strong); color: var(--label); }
+
+/* ===================================================================== reveals */
+/* Blur-in for home sections and lists only; never on forms or results.
+   Hidden only once the script has run (html.js), so content never stays invisible. */
+html.js .reveal {
+  opacity: 0; filter: blur(8px); transform: translateY(10px) scale(0.98);
+  transition: opacity var(--dur-reveal) var(--ease-soft), filter var(--dur-reveal) var(--ease-soft), transform var(--dur-reveal) var(--ease-soft);
+  transition-delay: calc(var(--i, 0) * 65ms);
+}
+html.js .reveal.visible { opacity: 1; filter: none; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; animation-duration: 0.01ms !important; }
+  html.js .reveal { opacity: 1; filter: none; transform: none; }
+}
