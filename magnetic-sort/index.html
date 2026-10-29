@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnetic sort · BenchMate</title>
+<meta name="description" content="STEMCELL EasySep negative selection for mouse T cells: bring the count to 1 × 10⁸ cells/mL, read the reagent volumes per kit and magnet, tick through the separation with timers, or run OT-I and OT-II in parallel.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .card h2, .result h2 { font-size: 18px; margin: 0 0 8px; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0; font-size: 15px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; }
+  .tag { white-space: nowrap; display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  .tag.s1 { background: var(--result-bg); }
+  .next-clock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .row-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .row-actions .go { flex: 1; }
+  table.run { width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  table.run td { padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.run td.t { width: 56px; text-align: right; color: var(--muted); }
+  table.run tr.done td.what { text-decoration: line-through; color: var(--muted); }
+  table.run button.tick { min-height: 32px; padding: 2px 8px; font-size: 14px; }
+  .over { color: var(--error-text); }
+  .small { font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Magnetic sort</h1>
+  <p class="lede">EasySep negative selection: everything but your T cells sticks to the magnet; the cells you want pour off.</p>
+
+  <form id="form" autocomplete="off">
+    <section class="card">
+      <h2>Kit and magnet</h2>
+      <div class="segments" role="radiogroup" aria-label="Sort one population, or OT-I and OT-II in parallel">
+        <label><input type="radio" name="par" id="par-one" value="one" checked>One sort</label>
+        <label><input type="radio" name="par" id="par-two" value="two">OT-I + OT-II</label>
+      </div>
+      <div id="kits"></div>
+
+      <div class="field" style="margin-top:12px">
+        <span class="label">Magnet</span>
+        <div class="segments" role="radiogroup" aria-label="Magnet">
+          <label><input type="radio" name="magnet" id="magnet-easySep" value="easySep" checked>EasySep</label>
+          <label><input type="radio" name="magnet" id="magnet-bigEasy" value="bigEasy">Big Easy</label>
+        </div>
+      </div>
+      <dl class="facts" id="magnet-facts"></dl>
+      <div id="par-setup" hidden>
+        <div class="field">
+          <label for="magnets">Magnets</label>
+          <select id="magnets"><option value="1">1 (the tubes take turns)</option><option value="2">2</option></select>
+        </div>
+        <div class="field">
+          <label for="handling">Hands-on per step</label>
+          <select id="handling">
+            <option value="0.5">0.5 min</option><option value="1" selected>1 min</option><option value="1.5">1.5 min</option>
+            <option value="2">2 min</option><option value="2.5">2.5 min</option><option value="3">3 min</option>
+          </select>
+        </div>
+      </div>
+      <details>
+        <summary>From the sheet</summary>
+        <dl class="facts" id="sheet"></dl>
+        <p class="hint">Skip ammonium chloride red-cell lysis before separating; the sheet advises against it.</p>
+        <p class="hint" id="attribution"></p>
+      </details>
+    </section>
+
+    <div id="samples"></div>
+
+    <section class="card" id="separate-card">
+      <h2 id="separate-title">Separate</h2>
+      <p class="hint" id="separate-hint"></p>
+      <div id="separate"></div>
+    </section>
+
+    <div id="isolated"></div>
+
+    <p><button type="button" class="secondary" id="start-over">Start a new sort</button></p>
+  </form>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script src="steps.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, F = BM.format, E = BM.easysep, ST = BM.steps, $ = ui.$, esc = ui.esc;
+  var form = $("#form");
+  var mL = function (v) { return F.volume(v / 1000); };
+  var uL = function (v) { return F.volume(v / 1e6); };
+  var minutes = function (m) { return F.plain(m) + " min"; };
+  var LINE_ORDER = ["otI", "otII", "other"];
+  var SORT_LINES = ["otI", "otII"];
+
+  // ---------------------------------------------------------------- static markup per sort
+  function kitOptions() {
+    return LINE_ORDER.map(function (line) {
+      return '<optgroup label="' + E.LINES[line] + '">' + E.KITS.filter(function (k) { return k.line === line; }).map(function (k) {
+        return '<option value="' + k.id + '" data-line="' + line + '">' + esc(k.target) + " · #" + k.id + " · " +
+          k.reagents.map(function (r) { return F.plain(r.microlitersPerML); }).join(" · ") + " µL/mL · " + esc(k.purity) + "</option>";
+      }).join("") + "</optgroup>";
+    }).join("");
+  }
+  var KIT_OPTIONS = kitOptions();
+
+  $("#kits").innerHTML = [0, 1].map(function (i) {
+    return '<div class="field" id="s' + i + '-kitfield" style="margin-top:12px"><label for="s' + i + '-kit" id="s' + i + '-kitlabel">Kit</label>' +
+      '<select id="s' + i + '-kit">' + KIT_OPTIONS + "</select></div>";
+  }).join("");
+  $("#kits").querySelectorAll("select")[0].value = "19853";
+  $("#kits").querySelectorAll("select")[1].value = "19852";
+
+  $("#samples").innerHTML = [0, 1].map(function (i) {
+    var p = "s" + i;
+    return '<div id="' + p + '-block">' +
+      '<section class="card"><h2 id="' + p + '-cells-title">Cells at 1 × 10⁸/mL</h2>' +
+      '<p class="hint">Count everything with a nucleus, live and dead: the kit doses per nucleated cell.</p>' +
+      '<div class="field"><label for="' + p + '-density">Nucleated cells per mL</label><input id="' + p + '-density" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 2e7"></div>' +
+      '<div class="field"><label for="' + p + '-volume">Suspension volume (mL)</label><input id="' + p + '-volume" inputmode="decimal" placeholder="e.g. 5"></div>' +
+      '<p class="hint" id="' + p + '-cells-have"></p>' +
+      '<div class="segments" role="radiogroup" aria-label="How to reach 1 × 10⁸ cells per mL">' +
+      ["concentrate", "dilutePortion", "diluteAll"].map(function (m) {
+        return '<label><input type="radio" name="' + p + '-mode" id="' + p + '-mode-' + m + '" value="' + m + '"' + (m === "concentrate" ? " checked" : "") + ">" + E.MODES[m] + "</label>";
+      }).join("") + "</div>" +
+      '<p class="hint" id="' + p + '-mode-hint"></p>' +
+      '<div class="field" id="' + p + '-portion-field"><label for="' + p + '-portion">Sample to make (mL)</label><input id="' + p + '-portion" inputmode="decimal" value="1" placeholder="e.g. 1"></div>' +
+      '</section>' +
+      '<section class="result" aria-live="polite"><div class="caption" id="' + p + '-eyebrow"></div><div class="hero" id="' + p + '-hero">—</div>' +
+      '<div id="' + p + '-lines"></div><div id="' + p + '-warn"></div></section>' +
+
+      '<section class="card"><h2 id="' + p + '-reagents-title">Reagents</h2>' +
+      '<p class="hint">Each dose is per mL of sample. Change the sample volume and every line follows.</p>' +
+      '<div class="field"><label for="' + p + '-sample">Sample at 1 × 10⁸/mL (mL)</label><input id="' + p + '-sample" inputmode="decimal" placeholder="blank follows Cells"></div>' +
+      '<p class="hint" id="' + p + '-sample-hint"></p></section>' +
+      '<section class="result"><div class="caption" id="' + p + '-table-eyebrow"></div><div id="' + p + '-table"></div><div id="' + p + '-table-warn"></div></section>' +
+      '</div>';
+  }).join("");
+
+  $("#isolated").innerHTML = [0, 1].map(function (i) {
+    var p = "s" + i;
+    return '<section class="card" id="' + p + '-iso"><h2 id="' + p + '-iso-title">Isolated cells</h2>' +
+      '<div class="field"><label for="' + p + '-iden">Live cells per mL</label><input id="' + p + '-iden" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 4e6"></div>' +
+      '<div class="field"><label for="' + p + '-ivol">Volume (mL)</label><input id="' + p + '-ivol" inputmode="decimal" placeholder="e.g. 2.5"></div>' +
+      '<dl class="facts" id="' + p + '-yield"></dl></section>';
+  }).join("");
+
+  var persist = ui.persist(form, "magnetic-sort");
+
+  // ---------------------------------------------------------------- state readers
+  var parallel = function () { return $("#par-two").checked; };
+  var magnet = function () { return $("input[name=magnet]:checked").value; };
+  var active = function () { return parallel() ? [0, 1] : [0]; };
+  function draft(i) {
+    var p = "s" + i;
+    return {
+      kitID: $("#" + p + "-kit").value,
+      densityText: $("#" + p + "-density").value,
+      volumeText: $("#" + p + "-volume").value,
+      mode: $("input[name=" + p + "-mode]:checked").value,
+      portionText: $("#" + p + "-portion").value,
+      sampleText: $("#" + p + "-sample").value,
+      isolatedDensityText: $("#" + p + "-iden").value,
+      isolatedVolumeText: $("#" + p + "-ivol").value
+    };
+  }
+  function name(i, sample) { return parallel() ? E.LINES[SORT_LINES[i]] : sample.kit.target; }
+  var magnetsCount = function () { return $("#magnets").value === "2" ? 2 : 1; };
+  var handlingMin = function () { var v = Number($("#handling").value); return v > 0 ? v : 1; };
+
+  // Switching to parallel puts an OT-I kit first and an OT-II kit second (EasySepModel.setParallel).
+  function enforceLines() {
+    var opts = function (i) { return Array.prototype.slice.call($("#s" + i + "-kit").options); };
+    [0, 1].forEach(function (i) {
+      var sel = $("#s" + i + "-kit"), required = SORT_LINES[i];
+      opts(i).forEach(function (o) {
+        var off = parallel() && o.getAttribute("data-line") !== required;
+        o.disabled = off; o.hidden = off;
+      });
+      if (parallel() && E.kit(sel.value).line !== required) {
+        sel.value = E.KITS.filter(function (k) { return k.line === required; })[0].id;
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------- the draw
+  var lastDensity = [null, null];
+  var checked = [{}, {}];
+  var lastSig = {};
+
+  function render() {
+    var par = parallel(), m = magnet();
+    enforceLines();
+    $("#s1-kitfield").hidden = !par;
+    $("#par-setup").hidden = !par;
+    $("#s0-kitlabel").textContent = par ? "OT-I kit" : "Kit";
+    $("#s1-kitlabel").textContent = "OT-II kit";
+    $("#s1-block").hidden = !par;
+    $("#s1-iso").hidden = !par;
+
+    var kits = active().map(function (i) { return E.kit($("#s" + i + "-kit").value); });
+    renderFacts(kits, m);
+
+    var samples = {};
+    active().forEach(function (i) {
+      var p = "s" + i, d = draft(i);
+      // Diluting needs at least 1 × 10⁸/mL: follow a changed count to the mode that can work.
+      var dens = E.number(d.densityText);
+      if (dens !== lastDensity[i]) {
+        lastDensity[i] = dens;
+        var next = E.suggestMode(d.mode, dens);
+        if (next !== d.mode) { $("#" + p + "-mode-" + next).checked = true; d.mode = next; }
+      }
+      var s = E.sampleOf(d, m);
+      samples[i] = s;
+      var label = name(i, s);
+      $("#" + p + "-cells-title").textContent = par ? "Cells at 1 × 10⁸/mL · " + label : "Cells at 1 × 10⁸/mL";
+      $("#" + p + "-reagents-title").textContent = par ? "Reagents · " + label : "Reagents";
+      $("#" + p + "-iso-title").textContent = par ? "Isolated " + label : "Isolated cells";
+      $("#" + p + "-portion-field").hidden = d.mode !== "dilutePortion";
+      $("#" + p + "-mode-hint").textContent = {
+        concentrate: "Spin, pour off the supernatant, and bring the pellet up to the volume below.",
+        dilutePortion: "Take part of a denser suspension and dilute it to the sample volume you want.",
+        diluteAll: "Add medium to all of a denser suspension."
+      }[d.mode];
+      $("#" + p + "-cells-have").textContent = s.density !== null && s.volume !== null ? "Cells: " + F.scientific(s.density * s.volume) : "";
+
+      // Cells result
+      if (s.resuspension) {
+        var card = E.describeResuspension(s.resuspension, s.kit, m);
+        $("#" + p + "-eyebrow").textContent = card.eyebrow;
+        $("#" + p + "-hero").innerHTML = esc(card.value) + " <small>" + esc(card.unit) + "</small>";
+        $("#" + p + "-lines").innerHTML = card.lines.map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+        ui.warnings($("#" + p + "-warn"), card.warnings);
+      } else {
+        $("#" + p + "-eyebrow").textContent = "Sample";
+        $("#" + p + "-hero").textContent = "—";
+        $("#" + p + "-lines").innerHTML = '<p class="empty">Enter the density and volume above.' +
+          (d.mode === "dilutePortion" && s.density !== null && s.volume !== null ? " Enter the sample to make." : "") + "</p>";
+        ui.warnings($("#" + p + "-warn"), []);
+      }
+
+      // Reagents
+      $("#" + p + "-sample").placeholder = s.plannedSampleML !== null ? F.number(s.plannedSampleML) + " (from Cells)" : "e.g. 1.5";
+      var sep = s.separation;
+      $("#" + p + "-sample-hint").textContent = d.sampleText.trim() !== "" && s.sampleML === null ? "Enter a sample volume above zero, or clear the field to follow Cells." : "";
+      if (sep) {
+        $("#" + p + "-table-eyebrow").textContent = "Per " + (sep.tubes > 1 ? "tube" : "sample") + " · × " + mL(sep.perTubeML);
+        $("#" + p + "-table").innerHTML = '<table class="recipe">' + E.reagentRows(sep).map(function (r) {
+          return "<tr><td><strong>" + esc(r.name) + "</strong>" + (r.note ? '<br><span class="small">' + esc(r.note) + "</span>" : "") + "</td>" +
+            '<td class="num"><strong>' + esc(r.amount) + "</strong>" + (r.dose ? '<br><span class="small">' + esc(r.dose) + "</span>" : "") +
+            (r.total ? '<br><span class="small">' + esc(r.total) + "</span>" : "") + "</td></tr>";
+        }).join("") + "</table>";
+        var w = E.separationWarnings(sep);
+        var split = E.splitNote(sep);
+        $("#" + p + "-table-warn").innerHTML = (split ? '<p class="hint">' + esc(split) + "</p>" : "");
+        var warnBox = document.createElement("div");
+        ui.warnings(warnBox, w);
+        $("#" + p + "-table-warn").insertAdjacentHTML("beforeend", warnBox.innerHTML);
+      } else {
+        $("#" + p + "-table-eyebrow").textContent = "Reagents";
+        $("#" + p + "-table").innerHTML = '<p class="empty">Enter a sample volume.</p>';
+        $("#" + p + "-table-warn").innerHTML = "";
+      }
+
+      // Yield
+      var y = "";
+      if (s.isolatedCells !== null) {
+        y += "<dt>Yield</dt><dd>" + esc(F.scientific(s.isolatedCells)) + " cells</dd>";
+        if (s.inputCells) y += "<dt>Of the cells put in</dt><dd>" + esc(F.number(s.recoveryPercent).replace(/\.\d+$/, function (x) { return x; })) + "% of " + esc(F.scientific(s.inputCells)) + "</dd>";
+      }
+      $("#" + p + "-yield").innerHTML = y;
+    });
+
+    renderSeparate(samples, m);
+  }
+
+  function renderFacts(kits, m) {
+    var mag = E.MAGNETS[m];
+    var lows = kits.map(function (k) { return E.sampleRange(k, m)[0]; }), highs = kits.map(function (k) { return E.sampleRange(k, m)[1]; });
+    var low = Math.max.apply(null, lows), high = Math.min.apply(null, highs);
+    $("#magnet-facts").innerHTML =
+      "<dt>Tube</dt><dd>" + esc(mag.tube) + "</dd>" +
+      "<dt>Sample</dt><dd>" + F.plain(low) + "–" + F.plain(high) + " mL at 1 × 10⁸/mL</dd>" +
+      "<dt>Top up</dt><dd>" + (m === "easySep" ? "to 2.5 mL" : "to 5 mL (under 4 mL), else 10 mL") + "</dd>" +
+      "<dt>Magnet</dt><dd>2.5 min, then pour off</dd>";
+    var media = kits.map(function (k) { return k.medium; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+    $("#sheet").innerHTML = (media.length === 1
+      ? "<dt>Medium</dt><dd>" + esc(media[0]) + "</dd>"
+      : kits.map(function (k) { return "<dt>Medium, #" + k.id + "</dt><dd>" + esc(k.medium) + "</dd>"; }).join("")) +
+      "<dt>Incubations</dt><dd>RT, 15–25 °C</dd>" +
+      "<dt>Source</dt><dd>" + kits.map(function (k) { return esc(k.document); }).join("<br>") + "</dd>";
+    var seen = {};
+    var sheets = kits.map(function (k) { return k.document; }).filter(function (d) { return seen[d] ? false : (seen[d] = true); })
+      .map(function (d) { return d.replace("PIS ", "").replace(" v", ", v"); });
+    $("#attribution").textContent = "From STEMCELL Technologies " + (sheets.length === 1 ? "Product Information Sheet " + sheets[0] : "Product Information Sheets " + sheets.join("; ")) +
+      ". Always follow the sheet that came with your kit lot.";
+  }
+
+  // ---------------------------------------------------------------- separate
+  function renderSeparate(samples, m) {
+    var par = parallel();
+    $("#separate-title").textContent = par ? "Separate both" : "Separate";
+    $("#separate-hint").textContent = par
+      ? "One clock for both sorts, staggered so no two steps fall together. Each step is timed from your Done on the step before it, so running late never shortens an incubation."
+      : "Tick each line as you go. The timers count down while this page is open.";
+    $("#start-over").textContent = par ? "Start new sorts" : "Start a new sort";
+    var box = $("#separate");
+    if (par) {
+      stopTickingSingle();
+      renderRun(samples, m);
+      return;
+    }
+    clearRunTick();
+    var sep = samples[0] && samples[0].separation;
+    if (!sep) {
+      box.innerHTML = '<p class="empty">Set the sample on Reagents first.</p>';
+      lastSig.single = null;
+      return;
+    }
+    var steps = E.singleSteps(sep, name(0, samples[0]));
+    var sig = JSON.stringify(steps);
+    if (sig !== lastSig.single || !box.firstChild || box.getAttribute("data-mode") !== "single") {
+      lastSig.single = sig;
+      box.setAttribute("data-mode", "single");
+      ST.list(box, steps, checked[0]);
+    }
+  }
+  function stopTickingSingle() { lastSig.single = null; }
+
+  // ---------------------------------------------------------------- parallel run
+  var RUN_KEY = "benchmate.web.magnetic-sort.run";
+  var RUN_LIFETIME = 12 * 60 * 60 * 1000;
+  var run = { start: null, doneAt: {} }; // ms
+  var runTick = null;
+  var lastSamples = null, lastMagnet = null, lastSchedule = null;
+
+  function setupSig() {
+    return [$("#s0-kit").value, $("#s1-kit").value, magnet(), magnetsCount(), handlingMin()].join("|");
+  }
+  function saveRun() {
+    try {
+      if (run.start === null) localStorage.removeItem(RUN_KEY);
+      else localStorage.setItem(RUN_KEY, JSON.stringify({ start: run.start, doneAt: run.doneAt, setup: setupSig() }));
+    } catch (e) { /* ignore */ }
+  }
+  function restoreRun() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(RUN_KEY) || "null");
+      if (parallel() && saved && saved.setup === setupSig() && Date.now() - saved.start < RUN_LIFETIME) {
+        run = { start: saved.start, doneAt: saved.doneAt || {} };
+      } else if (saved) {
+        localStorage.removeItem(RUN_KEY);
+      }
+    } catch (e) { /* ignore */ }
+  }
+  function clearRunTick() { if (runTick) { clearInterval(runTick); runTick = null; } }
+
+  var clock = ST.clock;
+
+  function currentSchedule() {
+    var m = magnet();
+    return E.schedule(E.actions(E.kit($("#s0-kit").value), m), E.actions(E.kit($("#s1-kit").value), m), handlingMin() * 60, magnetsCount());
+  }
+
+  function renderRun(samples, m) {
+    var box = $("#separate");
+    box.setAttribute("data-mode", "run");
+    lastSamples = samples; lastMagnet = m;
+    // A run saved under another set-up is not this run.
+    if (run.start !== null && lastSchedule && lastSchedule.sig !== setupSig()) { run = { start: null, doneAt: {} }; saveRun(); }
+    var sched = currentSchedule();
+    if (!sched) { box.innerHTML = '<p class="note warn">⚠︎ No schedule found for these kits.</p>'; return; }
+    sched.sig = setupSig();
+    lastSchedule = sched;
+    drawRun();
+    if (run.start !== null && !runTick) runTick = setInterval(drawRun, 1000);
+    if (run.start === null) clearRunTick();
+  }
+
+  function liveNow() {
+    var done = {};
+    Object.keys(run.doneAt).forEach(function (k) { done[k] = run.doneAt[k] / 1000; });
+    return E.liveRun(lastSchedule, run.start / 1000, handlingMin() * 60, magnetsCount(), done);
+  }
+
+  function tag(i) { return '<span class="tag s' + i + '">' + esc(E.LINES[SORT_LINES[i]]) + "</span>"; }
+  function amounts(action) {
+    return E.amountsText(action, lastSamples[action.sample] && lastSamples[action.sample].separation);
+  }
+
+  function drawRun() {
+    var sched = lastSchedule, box = $("#separate");
+    if (!sched || !parallel()) return;
+    var html;
+    if (run.start === null) {
+      var first = sched.starts[0] <= sched.starts[1] ? 0 : 1;
+      var gap = Math.abs(sched.starts[1] - sched.starts[0]);
+      html = '<div class="next-clock">' + clock(sched.end) + ' <small class="small">for both</small></div>' +
+        "<p>" + esc(E.LINES[SORT_LINES[first]]) + " starts; " + esc(E.LINES[SORT_LINES[1 - first]]) + " follows " + clock(gap) + " later. " +
+        (magnetsCount() === 1 ? "They take turns on one magnet." : "Each has its own magnet.") +
+        " Tap Done after each step: the next one is timed from that tap, so running late never shortens an incubation.</p>" +
+        '<p><button type="button" class="go" data-act="start">Start the clock</button></p>' + rowsHtml(null, Date.now() / 1000);
+    } else {
+      var now = Date.now() / 1000, live = liveNow();
+      html = nextPanel(live, now) + rowsHtml(live, now);
+    }
+    if (box.getAttribute("data-html") !== html) { box.innerHTML = html; box.setAttribute("data-html", html); }
+  }
+
+  function nextPanel(live, now) {
+    var ready = live.ready(now);
+    if (!ready.length) return '<p><strong>Both sorts poured off. Count them below.</strong></p><div class="row-actions"><button type="button" class="secondary" data-act="stop">Stop</button></div>';
+    var next = ready[0];
+    var due = live.due(next, now) - now;
+    var mf = live.magnetFree(next, now);
+    var behind = live.behind(next, now);
+    var waitingForMagnet = due <= 0 && mf !== null;
+    var eyebrow = waitingForMagnet ? "Magnet free in" : due > 0 ? "Next in" : due > -30 ? "Now" : "Over by";
+    var caution = due <= -30 || waitingForMagnet;
+    var clockText = waitingForMagnet ? clock(Math.max(mf - now, 0)) : (due > 0 || due < -30 ? clock(Math.abs(due)) : "0:00");
+    var parts = [];
+    if (waitingForMagnet) {
+      parts.push(E.LINES[SORT_LINES[1 - next.sample]] + " is still in the magnet. Top up now and put this tube in once it pours off.");
+    } else {
+      var anchor = live.anchor(next);
+      if (due <= -30 && anchor && anchor.sample === next.sample && anchor.action.wait > 0) {
+        parts.push("The " + minutes(anchor.action.wait / 60) + " wait is over and running long; do this step now.");
+      }
+    }
+    if (behind >= 30) parts.push("Running " + clock(behind) + " behind the plan. Each wait is timed from your Done tap, so none is cut short.");
+    var also = ready[1];
+    if (also && !(due > 0) && live.due(also, now) - now < live.handling) {
+      var ad = live.due(also, now) - now;
+      parts.push("Then " + E.LINES[SORT_LINES[also.sample]] + ": " + also.action.title + ", due " + (ad > 0 ? "in " + clock(ad) : "now") + ".");
+    }
+    var detail = amounts(next);
+    return '<div class="small">' + esc(eyebrow) + " · Run " + clock(Math.max(now - live.start, 0)) + "</div>" +
+      '<div class="next-clock' + (caution ? " over" : "") + '" role="timer">' + clockText + "</div>" +
+      "<p>" + tag(next.sample) + " <strong>" + esc(next.action.title) + "</strong></p>" +
+      (detail ? '<p class="small">' + esc(detail) + "</p>" : "") +
+      (parts.length ? '<p class="' + (caution ? "over" : "small") + '">' + esc(parts.join(" ")) + "</p>" : "") +
+      '<div class="row-actions"><button type="button" class="go" data-act="done" data-id="' + esc(next.id) + '">Done</button>' +
+      '<button type="button" class="secondary" data-act="stop">Stop</button></div>';
+  }
+
+  function rowsHtml(live, now) {
+    var sched = lastSchedule;
+    var actions = sched.actions.slice();
+    if (live) {
+      var rowTime = function (a) { return live.doneAt[a.id] !== undefined ? live.doneAt[a.id] : live.due(a, now); };
+      actions.sort(function (a, b) { return rowTime(a) - rowTime(b); });
+    }
+    return '<table class="run">' + actions.map(function (a) {
+      var done = live ? live.isDone(a) : false;
+      var time;
+      if (!live) time = clock(a.at);
+      else if (live.doneAt[a.id] !== undefined) time = clock(Math.max(live.doneAt[a.id] - live.start, 0));
+      else { var d = clock(Math.max(live.due(a, now) - live.start, 0)); time = live.isTimed(a) ? d : "≈" + d; }
+      var detail = amounts(a);
+      return '<tr class="' + (done ? "done" : "") + '"><td class="t">' + time + "</td><td>" + tag(a.sample) + '</td><td class="what">' +
+        esc(a.action.title) + (detail ? '<br><span class="small">' + esc(detail) + "</span>" : "") + "</td><td>" +
+        (live ? '<button type="button" class="secondary tick" data-act="toggle" data-id="' + esc(a.id) + '" aria-label="' + (done ? "Undo done: " : "Mark done: ") + esc(a.action.title) + '">' + (done ? "✓" : "○") + "</button>" : "") +
+        "</td></tr>";
+    }).join("") + "</table>";
+  }
+
+  $("#separate").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button[data-act]");
+    if (!b || !parallel()) return;
+    var act = b.getAttribute("data-act"), id = b.getAttribute("data-id");
+    if (act === "start") { run = { start: Date.now(), doneAt: {} }; }
+    else if (act === "done") { run.doneAt[id] = Date.now(); }
+    else if (act === "toggle") { if (run.doneAt[id] !== undefined) delete run.doneAt[id]; else run.doneAt[id] = Date.now(); }
+    else if (act === "stop") {
+      if (!window.confirm("Stop the run? The steps you've ticked are cleared.")) return;
+      run = { start: null, doneAt: {} };
+    }
+    saveRun();
+    render();
+  });
+
+  // ---------------------------------------------------------------- start over
+  $("#start-over").addEventListener("click", function () {
+    var busy = run.start !== null || checked.some(function (c) { return Object.keys(c).some(function (k) { return c[k]; }); }) || ST.hasActive("easysep.");
+    if (busy && !window.confirm("The ticked steps, counts and running timers of this run are cleared. Kits and magnet stay.")) return;
+    ["density", "volume", "sample", "iden", "ivol"].forEach(function (f) { [0, 1].forEach(function (i) { $("#s" + i + "-" + f).value = ""; }); });
+    [0, 1].forEach(function (i) { $("#s" + i + "-portion").value = "1"; $("#s" + i + "-mode-concentrate").checked = true; lastDensity[i] = null; });
+    checked = [{}, {}];
+    ST.resetAll("easysep.");
+    run = { start: null, doneAt: {} };
+    saveRun();
+    lastSig.single = null;
+    form.dispatchEvent(new Event("change"));
+  });
+
+  restoreRun();
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

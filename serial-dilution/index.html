@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serial dilution · BenchMate</title>
+<meta name="description" content="Serial dilution ladder: tube concentrations, diluent per tube and total diluent from a starting concentration (molar or mass/vol), fold factor, steps and transfer volume.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  .stepper { display: flex; gap: 8px; }
+  .stepper input { text-align: center; }
+  .stepper button { min-width: 48px; }
+  table.recipe td:first-child { color: var(--muted); }
+  table.recipe tr.final td { font-weight: 700; color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Serial dilution</h1>
+  <p class="lede">Fold series: a starting concentration, a fold factor, a number of tubes.</p>
+
+  <form id="form" class="card" autocomplete="off">
+    <div class="segments" role="radiogroup" aria-label="Concentration mode">
+      <label><input type="radio" name="mode" value="molar" id="mode-molar" checked>Molar</label>
+      <label><input type="radio" name="mode" value="mass" id="mode-mass">Mass/Vol</label>
+    </div>
+
+    <div class="field">
+      <label for="c0">Starting concentration</label>
+      <div class="row"><input id="c0" inputmode="decimal" value="1" placeholder="e.g. 1"><select id="c0-unit" aria-label="Starting concentration unit"></select></div>
+    </div>
+    <div class="field">
+      <label for="factor">Fold factor</label>
+      <div class="row"><input id="factor" inputmode="decimal" value="10" placeholder="e.g. 10"><span class="hint" style="align-self:center">×</span></div>
+    </div>
+    <div class="field">
+      <label for="steps">Number of steps (1–24)</label>
+      <div class="stepper">
+        <button type="button" class="secondary" id="steps-down" aria-label="Fewer steps">−</button>
+        <input id="steps" inputmode="numeric" value="5" aria-label="Number of steps">
+        <button type="button" class="secondary" id="steps-up" aria-label="More steps">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="transfer">Transfer volume</label>
+      <div class="row"><input id="transfer" inputmode="decimal" value="100" placeholder="e.g. 100"><select id="transfer-unit" aria-label="Transfer volume unit"></select></div>
+    </div>
+  </form>
+
+  <section class="result" aria-live="polite">
+    <div class="caption">Total diluent needed</div>
+    <div class="hero" id="hero">—</div>
+    <div id="body"></div>
+    <div id="warnings"></div>
+    <p><button type="button" class="secondary" id="copy">Copy ladder</button></p>
+  </section>
+
+  <section class="card" id="ladder-card" hidden>
+    <h2>Tube ladder</h2>
+    <table class="recipe" id="ladder"></table>
+  </section>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, U = BM.units, S = BM.serialDilution, $ = ui.$;
+  var form = $("#form");
+  var mode = function () { return $("input[name=mode]:checked").value; };
+  // Each mode remembers its own unit; the typed number is never rescaled on a switch.
+  var concUnit = { molar: "mM", mass: "mgPerML" };
+  var lastMode = null, result = null;
+
+  // Steps: a typed count is clamped to 1–24 once the field is left (typing "1" on the way
+  // to "12" must not be rewritten mid-edit).
+  function stepsValue() { return S.clampSteps(ui.num("steps")); }
+  function setSteps(n) { $("#steps").value = String(S.clampSteps(n)); }
+
+  function render() {
+    var m = mode();
+    if (m !== lastMode) {
+      lastMode = m;
+      ui.unitOptions($("#c0-unit"), m === "molar" ? U.molar : U.massConc, concUnit[m]);
+    }
+    concUnit[m] = $("#c0-unit").value;
+    result = S.compute({
+      mode: m,
+      text: { c0: $("#c0").value, factor: $("#factor").value, transfer: $("#transfer").value },
+      steps: stepsValue(),
+      units: { molar: concUnit.molar, mass: concUnit.mass, transfer: $("#transfer-unit").value }
+    });
+
+    $("#hero").innerHTML = result.total
+      ? ui.esc(result.total.value) + " <small>" + ui.esc(result.total.unit) + "</small>" : "—";
+    $("#body").innerHTML = result.plan
+      ? '<p class="hint">' + ui.esc(result.perTubeText) + "</p><p class=\"hint\">" + ui.esc(result.tubeText) + "</p>"
+      : result.factorTooLow ? "" : '<p class="empty">Enter values above to solve.</p>';
+    ui.warnings($("#warnings"), result.warnings);
+    $("#copy").disabled = !result.plan;
+
+    $("#ladder-card").hidden = !result.plan;
+    $("#ladder").innerHTML = result.tubes.map(function (t) {
+      return '<tr' + (t.isFinal ? ' class="final"' : "") + "><td>" + (t.isFinal ? "Final tube" : "Tube " + t.index) +
+        '</td><td class="num">' + ui.esc(t.text) + "</td></tr>";
+    }).join("");
+  }
+
+  ui.unitOptions($("#transfer-unit"), U.volume, "uL");
+  $("#steps-down").addEventListener("click", function () { setSteps(stepsValue() - 1); render(); });
+  $("#steps-up").addEventListener("click", function () { setSteps(stepsValue() + 1); render(); });
+  $("#steps").addEventListener("change", function () { setSteps(ui.num("steps")); });
+  ui.copyButton($("#copy"), function () { return result && result.plan ? result.copyText : ""; });
+
+  // Restore saved fields first (the unit list is filled for the saved mode), then go live.
+  var saved = ui.persist(form, "serial-dilution");
+  lastMode = mode();
+  ui.unitOptions($("#c0-unit"), lastMode === "molar" ? U.molar : U.massConc, concUnit[lastMode]);
+  try {
+    var s = JSON.parse(localStorage.getItem("benchmate.web.serial-dilution") || "null");
+    if (s && s["c0-unit"]) $("#c0-unit").value = s["c0-unit"];
+    if (s && s["mode-mass"]) concUnit.mass = $("#c0-unit").value; else concUnit.molar = $("#c0-unit").value;
+  } catch (e) { /* ignore */ }
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

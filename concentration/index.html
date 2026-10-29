@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concentration · BenchMate</title>
+<meta name="description" content="Convert mass concentration to molarity and back with a molecular weight, or turn an A₂₈₀ reading into a protein concentration with an extinction coefficient.">
+<link rel="stylesheet" href="../assets/bench.css">
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>Concentration</h1>
+  <p class="lede">mg/mL to molar, A₂₈₀. Type in either concentration field and the other one fills in.</p>
+
+  <form id="form" class="card" autocomplete="off">
+    <div class="segments" role="radiogroup" aria-label="Calculation mode">
+      <label><input type="radio" name="mode" value="massMolar" id="mode-massMolar" checked>Mass ⇄ Molar</label>
+      <label><input type="radio" name="mode" value="a280" id="mode-a280">A₂₈₀</label>
+    </div>
+    <input type="hidden" id="source" value="mass">
+
+    <div class="field">
+      <label for="mw">Molecular weight</label>
+      <div class="row"><input id="mw" data-sci data-sci-unit="g/mol" inputmode="decimal" placeholder="e.g. 66463" aria-label="Molecular weight in grams per mole"><span class="hint" style="align-self:center">g/mol</span></div>
+    </div>
+
+    <div id="massmolar-fields">
+      <div class="field">
+        <label for="mass">Mass concentration</label>
+        <div class="row"><input id="mass" inputmode="decimal" placeholder="e.g. 2.0"><select id="mass-unit" aria-label="Mass concentration unit"></select></div>
+      </div>
+      <div class="field">
+        <label for="molar">Molarity</label>
+        <div class="row"><input id="molar" inputmode="decimal" placeholder="e.g. 30.1"><select id="molar-unit" aria-label="Molarity unit"></select></div>
+      </div>
+    </div>
+
+    <div id="a280-fields" hidden>
+      <div class="field">
+        <label for="abs">Absorbance (A₂₈₀)</label>
+        <input id="abs" inputmode="decimal" placeholder="e.g. 1.40">
+      </div>
+      <div class="field">
+        <label for="eps">Extinction coefficient (ε)</label>
+        <div class="row"><input id="eps" data-sci data-sci-unit="M⁻¹cm⁻¹" inputmode="decimal" placeholder="e.g. 210000"><span class="hint" style="align-self:center">M⁻¹cm⁻¹</span></div>
+      </div>
+      <div class="field">
+        <label for="path">Path length</label>
+        <div class="row"><input id="path" inputmode="decimal" placeholder="1.0" value="1.0"><span class="hint" style="align-self:center">cm</span></div>
+      </div>
+      <div class="segments" role="radiogroup" aria-label="A280 result type">
+        <label><input type="radio" name="out" value="molar" id="out-molar" checked>Molar</label>
+        <label><input type="radio" name="out" value="mass" id="out-mass">Mass</label>
+      </div>
+      <div class="field">
+        <div class="label">Result unit</div>
+        <select id="a280-molar-unit" aria-label="A280 molarity unit"></select>
+        <select id="a280-mass-unit" aria-label="A280 mass concentration unit"></select>
+      </div>
+    </div>
+  </form>
+
+  <section class="result" aria-live="polite">
+    <div class="caption" id="eyebrow"></div>
+    <div class="hero" id="hero">—</div>
+    <div id="info"></div>
+    <div id="warnings"></div>
+  </section>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, U = BM.units, C = BM.concentration, $ = ui.$;
+  var form = $("#form");
+  var mode = function () { return $("input[name=mode]:checked").value; };
+  var out = function () { return $("input[name=out]:checked").value; };
+
+  ui.unitOptions($("#mass-unit"), U.massConc, "mgPerML");
+  ui.unitOptions($("#molar-unit"), U.molar, "uM");
+  ui.unitOptions($("#a280-molar-unit"), U.molar, "uM");
+  ui.unitOptions($("#a280-mass-unit"), U.massConc, "mgPerML");
+
+  ui.persist(form, "concentration");
+
+  function render() {
+    var m = mode();
+    $("#massmolar-fields").hidden = m !== "massMolar";
+    $("#a280-fields").hidden = m !== "a280";
+    $("#a280-molar-unit").hidden = out() !== "molar";
+    $("#a280-mass-unit").hidden = out() !== "mass";
+
+    var r = C.compute({
+      mode: m, mw: $("#mw").value, source: $("#source").value,
+      massRaw: $("#mass").value, molarRaw: $("#molar").value,
+      massUnit: $("#mass-unit").value, molarUnit: $("#molar-unit").value,
+      absorbance: $("#abs").value, epsilon: $("#eps").value, pathLength: $("#path").value,
+      a280Output: out(), a280MolarUnit: $("#a280-molar-unit").value, a280MassUnit: $("#a280-mass-unit").value
+    });
+
+    if (m === "massMolar") {
+      // The field that was not typed in shows the answer (blank when it can't be worked out).
+      var derived = $(r.sourceIsMass ? "#molar" : "#mass");
+      derived.value = r.derivedText;
+      derived.classList.add("solved");
+      $(r.sourceIsMass ? "#mass" : "#molar").classList.remove("solved");
+    }
+
+    $("#eyebrow").textContent = r.eyebrow;
+    $("#hero").innerHTML = r.value != null ? ui.esc(r.valueText) + " <small>" + ui.esc(r.unit) + "</small>" : "—";
+    // "Enter molecular weight" is a prompt, not a warning; everything else is in r.warnings.
+    $("#info").innerHTML = r.status.kind === "info" ? '<p class="empty">' + ui.esc(r.status.message) + "</p>" : "";
+    ui.warnings($("#warnings"), r.warnings);
+  }
+
+  form.addEventListener("input", function (e) {
+    // Typing in either concentration field makes it the source; the other one is derived.
+    if (e.target.id === "mass") $("#source").value = "mass";
+    else if (e.target.id === "molar") $("#source").value = "molar";
+    else return;
+    $("#source").dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>

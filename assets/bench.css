@@ -1,0 +1,132 @@
+/* BenchMate web — one stylesheet for every tool. Phone first; plain HTML elements. */
+:root {
+  --bg: #f6f5f2;
+  --card: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6b6b70;
+  --line: #dcdad5;
+  --accent: #5b4bb7;
+  --accent-text: #ffffff;
+  --warn-bg: #fff4d6;
+  --warn-text: #6b4a00;
+  --error-bg: #fde3e1;
+  --error-text: #8a1c12;
+  --result-bg: #eeebfa;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141416;
+    --card: #1f1f22;
+    --text: #f2f2f4;
+    --muted: #a0a0a8;
+    --line: #36363b;
+    --accent: #a99cf0;
+    --accent-text: #141416;
+    --warn-bg: #3a2f10;
+    --warn-text: #ffd98a;
+    --error-bg: #3d1714;
+    --error-text: #ffb4ab;
+    --result-bg: #29253d;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.card:has(> div:only-child:empty) { display: none; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 640px; margin: 0 auto; padding: 12px 16px 48px; }
+
+header.top { display: flex; align-items: baseline; gap: 12px; padding: 8px 0 4px; }
+header.top a { color: var(--accent); text-decoration: none; font-size: 15px; }
+h1 { font-size: 26px; margin: 4px 0 2px; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 24px 0 8px; font-weight: 600; }
+p.lede { color: var(--muted); margin: 0 0 12px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+.card > :first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+
+/* A labelled row: label on top, then the number input and its unit picker side by side. */
+.field { margin: 0 0 12px; }
+.field > label, .field > .label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 4px; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.row > input { flex: 1 1 auto; min-width: 0; }
+.row > select { flex: 0 0 auto; }
+
+input[type="text"], input[type="number"], input:not([type]), select, textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 44px;
+  width: 100%;
+}
+.row > select { width: auto; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+input.solved { background: var(--result-bg); font-weight: 600; }
+input[readonly] { cursor: default; }
+
+/* Segmented choice built from radio buttons. */
+.segments { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0 0 12px; }
+.segments label { flex: 1; text-align: center; padding: 10px 6px; min-height: 44px; cursor: pointer; font-size: 15px; border-left: 1px solid var(--line); }
+.segments label:first-child { border-left: 0; }
+.segments input { position: absolute; opacity: 0; pointer-events: none; }
+.segments label:has(input:checked) { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.segments label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+label.check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+label.check input { width: 22px; height: 22px; }
+
+button, .button {
+  font: inherit; font-size: 16px; font-weight: 600;
+  display: inline-block; text-align: center; text-decoration: none;
+  background: var(--accent); color: var(--accent-text);
+  border: 0; border-radius: 10px; padding: 10px 16px; min-height: 44px; cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.button.disabled { opacity: .55; cursor: default; }
+
+/* The answer. */
+.result { background: var(--result-bg); border-radius: 14px; padding: 14px; margin: 12px 0; }
+.result .hero { font-size: 34px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.result .hero small { font-size: 20px; font-weight: 600; color: var(--muted); }
+.result .caption { color: var(--muted); font-size: 15px; }
+.result .empty { color: var(--muted); }
+
+table.recipe { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.recipe th, table.recipe td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.recipe td.num, table.recipe th.num { text-align: right; white-space: nowrap; }
+table.recipe tr:last-child td { border-bottom: 0; }
+.scroll-x { overflow-x: auto; }
+
+.note { border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 15px; }
+.note.warn { background: var(--warn-bg); color: var(--warn-text); }
+.note.error { background: var(--error-bg); color: var(--error-text); }
+.sci-preview { color: var(--muted); font-size: 14px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.sci-preview.bad { color: var(--error-text); }
+.hint { color: var(--muted); font-size: 14px; margin: 4px 0 0; }
+
+details { margin: 12px 0; }
+summary { cursor: pointer; color: var(--accent); min-height: 32px; }
+
+/* Home list. */
+ul.tools { list-style: none; padding: 0; margin: 0; }
+ul.tools li { margin: 0 0 8px; }
+ul.tools a { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; color: var(--text); text-decoration: none; }
+ul.tools a strong { display: block; font-size: 18px; }
+ul.tools a span { color: var(--muted); font-size: 15px; }
+
+.promo { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 28px 0 12px; }
+.promo p { margin: 0 0 10px; }
+footer { color: var(--muted); font-size: 13px; margin-top: 16px; }
+footer a { color: var(--muted); }
+footer.version { margin-top: 24px; }

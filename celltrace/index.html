@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CellTrace · BenchMate</title>
+<meta name="description" content="CellTrace Violet proliferation staining: dye stock from DMSO, staining volume for your cells, the quench, then the plating mix for every well.">
+<link rel="stylesheet" href="../assets/bench.css">
+<style>
+  .card h2, .result h2 { font-size: 18px; margin: 0 0 8px; }
+  [hidden] { display: none !important; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .small { font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="../index.html">‹ All tools</a></header>
+  <h1>CellTrace Violet</h1>
+  <p class="lede">Example protocol — titrate for your cells. Make the stock just before staining.</p>
+
+  <form id="form" autocomplete="off">
+    <section class="card">
+      <h2>1 · Dye and protocol</h2>
+      <div class="field"><label for="dmso">DMSO per vial (µL)</label><input id="dmso" inputmode="decimal" value="20" placeholder="20"></div>
+      <div class="field"><label for="dilution">Dye dilution in warm PBS (1 : ×)</label><input id="dilution" inputmode="decimal" value="1000" placeholder="1000"></div>
+      <div class="field"><label for="sdensity">Stain at (live cells/mL)</label><input id="sdensity" data-sci data-sci-unit="cells/mL" inputmode="decimal" value="5000000" placeholder="5000000"></div>
+      <div class="field"><label for="minutes">Stain for (min)</label><input id="minutes" inputmode="decimal" value="20" placeholder="20"></div>
+      <div class="field"><label for="quench">Quench with complete medium (volumes)</label><input id="quench" inputmode="decimal" value="5" placeholder="5"></div>
+      <p><button type="button" class="secondary" id="restore" hidden>Restore 20 µL · 1:1000 · 5 × 10⁶/mL · 20 min · 5 volumes</button></p>
+      <p class="hint">These defaults are one lab's example, not Thermo Fisher Scientific's instructions. Always check the CellTrace Violet user guide for your kit.</p>
+      <div id="prep"></div>
+    </section>
+
+    <section class="card">
+      <h2>2 · Stain</h2>
+      <p class="hint" id="stain-sub"></p>
+      <div class="field"><label for="density">Live cells per mL</label><input id="density" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 2e6"></div>
+      <div class="field"><label for="volume">Suspension volume (mL)</label><input id="volume" inputmode="decimal" placeholder="e.g. 10"></div>
+      <div class="segments" role="radiogroup" aria-label="Cells to stain">
+        <label><input type="radio" name="amount" id="amount-total" value="total" checked>Number of cells</label>
+        <label><input type="radio" name="amount" id="amount-wells" value="wells">From wells</label>
+      </div>
+      <div id="total-fields" style="margin-top:12px">
+        <div class="field"><label for="cells">Cells to stain (blank for all)</label><input id="cells" data-sci data-sci-unit="cells" inputmode="decimal" placeholder="All"></div>
+      </div>
+      <div id="wells-fields" style="margin-top:12px" hidden>
+        <div class="field"><label for="sw-cpw">Cells per well</label><input id="sw-cpw" data-sci data-sci-unit="cells" inputmode="decimal" placeholder="e.g. 100000"></div>
+        <div class="two">
+          <div class="field"><label for="sw-wells">Wells</label><input id="sw-wells" inputmode="numeric" placeholder="24"></div>
+          <div class="field"><label for="overage">Overage (%)</label><input id="overage" inputmode="decimal" value="20" placeholder="20"></div>
+        </div>
+        <p class="hint">Cells per well and wells carry over to the Plate step.</p>
+      </div>
+      <p class="hint" id="have"></p>
+    </section>
+    <section class="result" aria-live="polite">
+      <div class="caption">Staining volume</div>
+      <div class="hero" id="stain-hero">—</div>
+      <div id="stain-lines"></div>
+      <div id="stain-warn"></div>
+    </section>
+    <section class="card"><div id="stain-steps"></div></section>
+
+    <section class="card">
+      <h2>3 · Quench</h2>
+      <p class="hint">Complete medium soaks up the free dye; serum protein stops the staining.</p>
+    </section>
+    <section class="result" aria-live="polite">
+      <div class="caption">Add complete medium</div>
+      <div class="hero" id="quench-hero">—</div>
+      <div id="quench-lines"></div>
+      <div id="quench-warn"></div>
+    </section>
+    <section class="card"><div id="quench-steps"></div></section>
+
+    <section class="card">
+      <h2>4 · Recount and plate</h2>
+      <p class="hint">Count the stained cells again (some are lost in the washes), then make one mix for every well.</p>
+      <div class="field"><label for="rdensity">Live cells per mL</label><input id="rdensity" data-sci data-sci-unit="cells/mL" inputmode="decimal" placeholder="e.g. 2e6"></div>
+      <div class="field"><label for="rvolume">Volume (mL)</label><input id="rvolume" inputmode="decimal" placeholder="e.g. 2"></div>
+      <p class="hint" id="recovered"></p>
+      <div class="field"><label for="cpw">Cells per well</label><input id="cpw" data-sci data-sci-unit="cells" inputmode="decimal" value="100000" placeholder="e.g. 100000"></div>
+      <div class="two">
+        <div class="field"><label for="perwell">Volume per well (µL)</label><input id="perwell" inputmode="decimal" value="200" placeholder="200"></div>
+        <div class="field"><label for="wells">Wells</label><input id="wells" inputmode="numeric" value="24" placeholder="24"></div>
+      </div>
+      <div class="field"><label for="excess">Excess (%)</label><input id="excess" inputmode="decimal" value="10" placeholder="10"></div>
+    </section>
+    <section class="result" aria-live="polite">
+      <div class="caption">Plating mix</div>
+      <div class="hero" id="plate-hero">—</div>
+      <div id="plate-lines"></div>
+      <div id="plate-warn"></div>
+    </section>
+
+    <p><button type="button" class="secondary" id="start-over">Start a new staining</button></p>
+  </form>
+
+  <div class="promo" data-app-promo></div>
+</main>
+<script src="../assets/bench.js"></script>
+<script src="engine.js"></script>
+<script src="../magnetic-sort/steps.js"></script>
+<script>
+(function () {
+  "use strict";
+  var ui = BM.ui, F = BM.format, C = BM.celltrace, ST = BM.steps, $ = ui.$, esc = ui.esc;
+  var form = $("#form");
+  var FIELDS = { dmso: "dmsoPerVialUL", dilution: "dyeDilution", sdensity: "stainingDensity", minutes: "stainMinutes", quench: "quenchVolumes" };
+  var checked = {};
+  var sigs = {};
+  var settings = C.settings();
+
+  // Unreadable or non-positive entries leave that protocol value alone (settingBinding).
+  var persist = ui.persist(form, "celltrace");
+  Object.keys(FIELDS).forEach(function (id) {
+    var v = F.parse($("#" + id).value);
+    if (v !== null && v > 0) settings[FIELDS[id]] = v;
+  });
+
+  function readSettings(target) {
+    if (target && FIELDS[target.id]) {
+      var v = F.parse(target.value);
+      if (v !== null && v > 0) settings[FIELDS[target.id]] = v;
+    }
+  }
+
+  function steps(id, specs) {
+    var sig = JSON.stringify(specs);
+    if (sigs[id] === sig) return;
+    sigs[id] = sig;
+    ST.list($("#" + id), specs, checked);
+  }
+  function result(prefix, card) {
+    if (!card) { $("#" + prefix + "-hero").textContent = "—"; $("#" + prefix + "-lines").innerHTML = ""; return; }
+    $("#" + prefix + "-hero").innerHTML = esc(card.value) + " <small>" + esc(card.unit) + "</small>";
+    $("#" + prefix + "-lines").innerHTML = (card.lines || [card.line]).map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+  }
+  function empty(prefix, msg) {
+    $("#" + prefix + "-hero").textContent = "—";
+    $("#" + prefix + "-lines").innerHTML = '<p class="empty">' + esc(msg) + "</p>";
+  }
+
+  // Cells per well and wells are one pair of values shown in both Stain (from wells) and Plate.
+  var mirror = [["sw-cpw", "cpw"], ["sw-wells", "wells"]];
+  var mirrored = false;
+  function syncMirror(e) {
+    mirror.forEach(function (pair) {
+      if (e && e.target.id === pair[0]) $("#" + pair[1]).value = e.target.value;
+      else if (e && e.target.id === pair[1]) $("#" + pair[0]).value = e.target.value;
+      else if (!mirrored) $("#" + pair[0]).value = $("#" + pair[1]).value;
+    });
+    mirrored = true;
+  }
+
+  function model() {
+    return {
+      densityText: $("#density").value, volumeText: $("#volume").value,
+      stainAmount: $("#amount-wells").checked ? "wells" : "total",
+      cellsToStainText: $("#cells").value, stainOveragePercentText: $("#overage").value,
+      cellsPerWellText: $("#cpw").value, wellsText: $("#wells").value,
+      recountDensityText: $("#rdensity").value, recountVolumeText: $("#rvolume").value,
+      microlitersPerWellText: $("#perwell").value, excessPercentText: $("#excess").value
+    };
+  }
+
+  function render(e) {
+    if (e && e.target) readSettings(e.target);
+    syncMirror(e && e.target ? e : null);
+    var m = model(), s = settings;
+    $("#restore").hidden = C.isStandard(s);
+    $("#stain-sub").textContent = "Live cells at " + F.scientific(s.stainingDensity) + "/mL in PBS with the dye at 1:" + F.plain(s.dyeDilution) + ".";
+    $("#wells-fields").hidden = m.stainAmount !== "wells";
+    $("#total-fields").hidden = m.stainAmount !== "total";
+    var avail = C.availableCells(m);
+    $("#cells").placeholder = avail !== null ? "All " + F.scientific(avail) : "All";
+    var wellsCells = C.cellsForWells(m);
+    $("#have").textContent = (m.stainAmount === "wells" && wellsCells !== null ? "Cells to stain: " + F.scientific(wellsCells) + ". " : "") +
+      (avail !== null ? "Live cells counted: " + F.scientific(avail) : "");
+
+    steps("prep", C.prepSteps(s));
+
+    var plan = C.stainPlan(m, s);
+    if (plan) { result("stain", C.describeStain(plan, s)); steps("stain-steps", C.stainSteps(plan, s)); }
+    else { empty("stain", "Enter the live density and volume."); $("#stain-steps").innerHTML = ""; sigs["stain-steps"] = null; }
+    ui.warnings($("#stain-warn"), C.stainWarnings(plan, avail, s));
+
+    if (plan) { result("quench", C.describeQuench(plan, s)); steps("quench-steps", C.quenchSteps(plan)); }
+    else { empty("quench", "Work out the staining volume first."); $("#quench-steps").innerHTML = ""; sigs["quench-steps"] = null; }
+    ui.warnings($("#quench-warn"), C.quenchWarnings(plan));
+
+    var rc = C.recountCells(m);
+    $("#recovered").textContent = rc === null ? "" : "Recovered: " + F.scientific(rc) +
+      (plan ? ", " + F.number(rc / plan.cells * 100).replace(/\.\d+$/, "") + "% of stained" : "");
+    var pp = C.platePlan(m);
+    if (pp) result("plate", C.describePlate(pp, m.microlitersPerWellText.trim()));
+    else empty("plate", "Enter the recount and the wells.");
+    ui.warnings($("#plate-warn"), C.plateWarnings(pp));
+  }
+
+  $("#restore").addEventListener("click", function () {
+    settings = C.settings();
+    Object.keys(FIELDS).forEach(function (id) { $("#" + id).value = String(C.STANDARD[FIELDS[id]]); });
+    form.dispatchEvent(new Event("change"));
+  });
+  $("#start-over").addEventListener("click", function () {
+    if (ST.hasActive("celltrace.") && !window.confirm("The stain timer hasn't finished. Clearing stops it, and clears the counts and ticked steps. Your protocol and wells stay.")) return;
+    ["density", "volume", "cells", "rdensity", "rvolume"].forEach(function (id) { $("#" + id).value = ""; });
+    Object.keys(checked).forEach(function (k) { delete checked[k]; });
+    ST.resetAll("celltrace.");
+    sigs = {};
+    form.dispatchEvent(new Event("change"));
+  });
+
+  ui.live(form, render);
+})();
+</script>
+</body>
+</html>
