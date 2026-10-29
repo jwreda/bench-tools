@@ -68,6 +68,10 @@
   --result-bg: #f5eef8;                /* the answer: solid, faintly wisteria (between wisteria-50 and -100) */
   --result-edge: var(--wisteria-200);
   --solved-bg: var(--wisteria-100);
+  /* Step lists: done rows shaded, the current step tinted more with a wisteria bar. */
+  --step-done-bg: color-mix(in srgb, var(--wisteria-300) 14%, transparent);
+  --step-now-bg: color-mix(in srgb, var(--wisteria-300) 30%, transparent);
+  --step-now-edge: var(--wisteria-500);
   --warn-ink: var(--porsche-deep);
   --warn-bg: color-mix(in srgb, var(--porsche) 18%, transparent);
   --error-ink: var(--wewak-deep);
@@ -115,6 +119,9 @@
     --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
     --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
     --result-bg: #29222d;  --result-edge: var(--wisteria-800);  --solved-bg: #362a3e;
+    --step-done-bg: color-mix(in srgb, var(--wisteria-300) 10%, transparent);
+    --step-now-bg: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
+    --step-now-edge: var(--wisteria-300);
     --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
     --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
     --glass-hover-bg: linear-gradient(135deg,
@@ -141,6 +148,9 @@
   --tag-ink-mix: 100%;  --tag-fill: 14%;  --tag-edge: 55%;  --tag-on-solid: #1f1c1a;
   --field-bg: var(--warm-900);  --field-border: var(--warm-600);  --unit: var(--caramel-400);
   --result-bg: #29222d;  --result-edge: var(--wisteria-800);  --solved-bg: #362a3e;
+  --step-done-bg: color-mix(in srgb, var(--wisteria-300) 10%, transparent);
+  --step-now-bg: color-mix(in srgb, var(--wisteria-300) 16%, transparent);
+  --step-now-edge: var(--wisteria-300);
   --warn-ink: var(--porsche);  --warn-bg: color-mix(in srgb, var(--porsche) 14%, transparent);
   --error-ink: var(--wewak);  --error-bg: color-mix(in srgb, var(--wewak) 14%, transparent);
   --glass-hover-bg: linear-gradient(135deg,
