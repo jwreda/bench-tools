@@ -10,6 +10,11 @@ choices (including the flask chips in Count samples), checkboxes, focus rings, o
 the answer card and solved fields are now wisteria instead of green. Solid buttons and the
 wordmark stay forest green. No change to any calculation.
 
+## 1.3.1 — 2026-10-29
+
+- Count samples: where a recipe says "Count this sample first" or asks for the target, a button
+  now takes you to the field to fill in (scrolls it into view and puts the cursor there).
+
 ## 1.3.0 — 2026-10-29
 
 - Plate by wells: Cell counting (Seeding) and Count samples (Passage) take a new **Per well**
