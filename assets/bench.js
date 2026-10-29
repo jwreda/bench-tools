@@ -16,7 +16,7 @@
    * vX.Y.Z; the deploy keeps every tagged release live at /vX.Y.Z/ and flips FROZEN to true
    * in those copies so their pages say they're an archived version.
    */
-  BM.VERSION = "1.1.0";
+  BM.VERSION = "1.2.0";
   BM.FROZEN = false;
 
   // ---------------------------------------------------------------- units
@@ -232,6 +232,24 @@
       return '<p class="note ' + (w.level === "error" ? "error" : "warn") + '">' +
         (w.level === "error" ? "✕ " : "⚠︎ ") + ui.esc(w.text) + "</p>";
     }).join("");
+    // An error means the answer above it can't be used as is: the card says so too.
+    var card = el.closest && el.closest(".result");
+    if (card) card.classList.toggle("has-error", ui.$$(".note.error", card).length > 0);
+  };
+
+  /**
+   * The body of a result card whose plan can't be followed: why, the amount it would still
+   * take (kept, so the user sees the scale of the problem), and one button that fixes it.
+   * `b` is { title, wouldNeed: { label, value, note }, fix: { label, preview } };
+   * `attrs` are extra attributes for the fix button (the page handles its click).
+   */
+  ui.blockedHTML = function (b, attrs) {
+    return '<p class="blocked-title">✕ ' + ui.esc(b.title) + "</p>" +
+      (b.wouldNeed ? '<div class="would"><span class="would-label">' + ui.esc(b.wouldNeed.label) + '</span>' +
+        '<span class="would-value">' + ui.esc(b.wouldNeed.value) + "</span>" +
+        '<span class="would-note">' + ui.esc(b.wouldNeed.note) + "</span></div>" : "") +
+      (b.fix ? '<div class="fix"><button type="button"' + (attrs || "") + ">" + ui.esc(b.fix.label) + "</button>" +
+        '<span class="hint">' + ui.esc(b.fix.preview) + "</span></div>" : "");
   };
 
   /** Re-run `fn` whenever any input/select inside `form` changes. Runs once now. */
@@ -252,10 +270,175 @@
         button.textContent = "Copied";
         setTimeout(function () { button.textContent = old; }, 1200);
       };
+      // Older Safari and some in-app browsers refuse the clipboard API: fall back to a selection.
+      var fallback = function () {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { if (document.execCommand("copy")) done(); } catch (e) { /* ignore */ }
+        ta.remove();
+      };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () {});
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else {
+        fallback();
       }
     });
+  };
+
+  // ---------------------------------------------------------------- Markdown copy
+  /**
+   * The page as the user filled it in, as Markdown: title, every visible field with its value
+   * and unit, chosen options, results, tables, notes and warnings, in page order. Generic over
+   * the page's markup, so every tool gets it without code of its own. Hidden parts (closed
+   * <details>, unused modes) are left out; buttons, read-backs and the app promo too.
+   */
+  ui.markdown = function (main) {
+    var out = [];
+    var clean = function (t) { return String(t || "").replace(/\s+/g, " ").trim(); };
+    var shown = function (el) { return !el.hidden && el.getClientRects().length > 0; };
+    var cellText = function (el) {
+      var t = "";
+      el.childNodes.forEach(function (n) {
+        if (n.nodeType === 3) t += n.textContent;
+        else if (n.nodeName === "BR") t += " · ";
+        else if (n.nodeName === "INPUT" && n.type === "checkbox") t += n.checked ? "[x] " : "[ ] ";
+        else if (n.nodeType === 1 && shown(n) && !n.matches("button, .sci-preview")) {
+          // A nested line (a note under a step, a sub-amount) reads as its own clause.
+          t += (n.matches("div, p, small, .hint, .small") ? " · " : " ") + cellText(n) + " ";
+        }
+      });
+      return clean(t).replace(/^(\[[ x]\] )?· /, "$1").replace(/( · )+/g, " · ").replace(/ ·$/, "");
+    };
+    var para = function (t) { if (t) out.push("", t); };
+    var item = function (t) {
+      if (!t) return;
+      if (out.length && out[out.length - 1] !== "" && out[out.length - 1].indexOf("- ") !== 0) out.push("");
+      out.push("- " + t);
+    };
+    var ownText = function (label) {
+      return clean(Array.prototype.filter.call(label.childNodes, function (n) { return n.nodeType === 3; })
+        .map(function (n) { return n.textContent; }).join(""));
+    };
+    var value = function (c) {
+      if (c.tagName === "SELECT") return c.selectedOptions[0] ? clean(c.selectedOptions[0].textContent) : "";
+      if (c.tagName === "INPUT") return clean(c.value);
+      return clean(c.textContent);
+    };
+    var CONTROLS = "input:not([type=radio]):not([type=checkbox]), select, textarea, .row > .hint, .row > .unit, .inline > .unit";
+
+    function field(el) {
+      var lab = el.querySelector(":scope > label, :scope > .label");
+      var parts = [];
+      el.querySelectorAll(CONTROLS).forEach(function (c) {
+        if (shown(c) && !c.closest("label.check")) parts.push(value(c));
+      });
+      var first = el.querySelector("input:not([type=radio]):not([type=checkbox]), select, textarea");
+      if (parts.length && first && value(first)) {
+        item("**" + (lab ? ownText(lab) || clean(lab.textContent) : "Value") + ":** " + parts.filter(Boolean).join(" ") +
+          (el.querySelector("input.solved") ? " (solved)" : ""));
+      }
+      el.querySelectorAll(".segments, label.check").forEach(function (x) { if (shown(x)) walk(x); });
+    }
+
+    function table(el) {
+      var rows = Array.prototype.filter.call(el.rows, shown).map(function (tr) {
+        return Array.prototype.filter.call(tr.cells, shown).map(cellText);
+      }).filter(function (r) { return r.join("").trim(); });
+      if (!rows.length) return;
+      out.push("");
+      if (el.querySelector("th")) {
+        var esc = function (r) { return "| " + r.map(function (c) { return c.replace(/\|/g, "\\|"); }).join(" | ") + " |"; };
+        out.push(esc(rows[0]), "|" + rows[0].map(function () { return " --- "; }).join("|") + "|");
+        rows.slice(1).forEach(function (r) { out.push(esc(r)); });
+      } else {
+        rows.forEach(function (r) {
+          var cells = r.filter(Boolean);
+          item(cells.length === 2 ? cells[0] + ": **" + cells[1] + "**" : cells.join(" · "));
+        });
+      }
+    }
+
+    function walk(el) {
+      if (el.nodeType !== 1 || !shown(el)) return;
+      if (el.matches(".promo, footer, .page-head, button, script, style, .sci-preview, .md-copy, summary")) return;
+      var tag = el.tagName;
+      if (/^H[1-4]$/.test(tag)) { para("#".repeat(Math.max(2, Number(tag[1]))) + " " + clean(el.textContent)); return; }
+      if (el.matches(".field")) { field(el); return; }
+      if (el.matches("ol.steps > li")) {
+        // A protocol step: ticked or not, what to do, and how much.
+        var q = function (sel) { var x = el.querySelector(sel); return x ? clean(x.textContent) : ""; };
+        var box2 = el.querySelector("input[type=checkbox]");
+        var amount = el.querySelector(".step-amount");
+        item((box2 && box2.checked ? "[x] " : "[ ] ") + "**" + q(".step-title") + "**" +
+          (q(".step-note") ? " — " + q(".step-note") : "") + (amount ? " · " + cellText(amount) : ""));
+        return;
+      }
+      if (el.matches(".segments")) {
+        var on = el.querySelector("input:checked");
+        if (on) item("**" + (el.getAttribute("aria-label") || "Option") + ":** " + clean(on.closest("label").textContent));
+        return;
+      }
+      if (tag === "LABEL") {
+        var box = el.querySelector("input[type=checkbox]");
+        var txt = el.querySelector("input:not([type=radio]):not([type=checkbox]), select");
+        if (box) item(cellText(el));
+        else if (txt && value(txt)) item("**" + ownText(el) + ":** " + value(txt));
+        return;
+      }
+      if (el.matches(".result")) {
+        var cap = el.querySelector(":scope > .caption"), hero = el.querySelector(":scope > .hero");
+        var h = hero ? clean(hero.textContent) : "";
+        var c = cap ? clean(cap.textContent) : "";
+        if (c || (h && h !== "—")) para("**" + (c || "Result") + (h && h !== "—" ? ": " + h : "") + "**");
+        Array.prototype.forEach.call(el.children, function (k) { if (k !== cap && k !== hero) walk(k); });
+        return;
+      }
+      if (tag === "TABLE") { table(el); return; }
+      if ((tag === "INPUT" && !/^(radio|checkbox|hidden)$/.test(el.type)) || tag === "SELECT") {
+        // A loose control (a hemocytometer square, a value in a grid): named by its <label for>.
+        var named = el.id && document.querySelector('label[for="' + el.id + '"]');
+        var nm = named ? clean(named.textContent) : el.getAttribute("aria-label");
+        if (value(el)) item((nm ? "**" + nm + ":** " : "") + value(el));
+        return;
+      }
+      if (tag === "LABEL" && el.htmlFor && !el.contains(document.getElementById(el.htmlFor))) return;
+      if (tag === "DL") {
+        out.push("");
+        Array.prototype.forEach.call(el.querySelectorAll("dt"), function (dt) {
+          var dd = dt.nextElementSibling;
+          item(clean(dt.textContent) + ": " + (dd ? cellText(dd) : ""));
+        });
+        return;
+      }
+      if (el.matches(".note")) { para("> " + clean(el.textContent)); return; }
+      if (el.matches(".would")) { para("> " + cellText(el)); return; }
+      var kids = Array.prototype.filter.call(el.children, function (k) { return !k.matches("br, small, strong, em, b, i, code, span, a, sub, sup"); });
+      if (tag === "P" || !kids.length) { para(cellText(el)); return; }
+      Array.prototype.forEach.call(el.children, walk);
+    }
+
+    var h1 = ui.$("h1"), lede = ui.$(".page-head .lede");
+    out.push("# " + clean(h1 ? h1.textContent : document.title));
+    if (lede) para(clean(lede.textContent));
+    para("_BenchMate tools v" + BM.VERSION + " · " + new Date().toLocaleString() + " · " + location.href.split("#")[0] + "_");
+    Array.prototype.forEach.call(main.children, walk);
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  };
+
+  /** A "Copy as Markdown" button at the end of every tool page (any page with a form). */
+  ui.markdownButton = function () {
+    var main = ui.$("main"), promo = main && ui.$(".promo", main);
+    if (!main || !ui.$("form", main) || ui.$(".md-copy", main)) return;
+    var bar = document.createElement("div");
+    bar.className = "md-copy";
+    bar.innerHTML = '<button type="button" class="secondary">Copy as Markdown</button>' +
+      '<span class="hint">Everything on this page as you filled it in, for a notebook or ELN.</span>';
+    main.insertBefore(bar, promo || null);
+    ui.copyButton(ui.$("button", bar), function () { return ui.markdown(main); });
   };
 
   /**
@@ -440,6 +623,7 @@
   }
 
   if (typeof document !== "undefined") {
+    document.addEventListener("DOMContentLoaded", ui.markdownButton);
     document.addEventListener("DOMContentLoaded", ui.appPromo);
     document.addEventListener("DOMContentLoaded", ui.versionFooter);
   }

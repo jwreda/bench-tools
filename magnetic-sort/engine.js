@@ -101,7 +101,7 @@
       if (!(portionML > 0)) return null;
       var take = portionML * target / density;
       var issue = density < target ? { kind: "tooDiluteToDilute" }
-        : take > volumeML * (1 + 1e-9) ? { kind: "notEnoughCells", neededML: take } : null;
+        : take > volumeML * (1 + 1e-9) ? { kind: "notEnoughCells", neededML: take, haveML: volumeML } : null;
       return { mode: mode, cells: portionML * target, suspensionML: take, diluentML: Math.max(portionML - take, 0), sampleML: portionML, issue: issue };
     }
     return null;
@@ -327,7 +327,49 @@
         lines: ["To all " + mL(plan.suspensionML) + " → " + volume + " at 1 × 10⁸/mL (" + cells + " cells)."].concat(range) };
     }
     out.warnings = resuspensionWarnings(plan, k, magnet);
+    out.blocked = blockedResuspension(plan);
     return out;
+  }
+
+  /** Rounds down to 3 significant figures, so a suggested amount is always one you can make. */
+  function floor3(v) {
+    var p = Math.pow(10, Math.floor(Math.log10(v)) - 2);
+    return Math.floor(v / p + 1e-9) * p;
+  }
+
+  /**
+   * When a plan can't be followed: why, the volume it would still take, and the fix.
+   * null when the plan works. { eyebrow, title, wouldNeed: { label, value, note }, fix: { label, mode?, portion?, preview } }
+   */
+  function blockedResuspension(plan) {
+    var issue = plan && plan.issue;
+    if (!issue || issue.kind === "alreadyConcentrated") return null;
+    var density = plan.cells / plan.suspensionML; // the suspension as counted
+    if (issue.kind === "tooDiluteToDilute") {
+      var out = { eyebrow: "Can't dilute",
+        title: "At " + F.scientific(density) + "/mL these cells are already thinner than 1 × 10⁸/mL. Adding medium only thins them further." };
+      if (plan.mode === "dilutePortion") {
+        out.wouldNeed = { label: "Would need", value: mL(plan.suspensionML) + " of cells",
+          note: "for a " + mL(plan.sampleML) + " sample: more than the sample itself." };
+        out.fix = { label: "Spin down instead", mode: "concentrate",
+          preview: "Spin the cells down and resuspend at 1 × 10⁸/mL." };
+      } else {
+        out.wouldNeed = { label: "At 1 × 10⁸/mL", value: mL(plan.sampleML),
+          note: "is all these " + F.scientific(plan.cells) + " cells fill, less than the " + mL(plan.suspensionML) + " you have." };
+        out.fix = { label: "Spin down instead", mode: "concentrate",
+          preview: "Spin down and resuspend in " + mL(plan.sampleML) + "." };
+      }
+      return out;
+    }
+    if (issue.kind === "notEnoughCells") {
+      var maxSample = floor3(issue.haveML * density / TARGET_DENSITY);
+      return { eyebrow: "Not enough cells",
+        title: "A " + mL(plan.sampleML) + " sample at 1 × 10⁸/mL takes more suspension than you have (" + mL(issue.haveML) + ").",
+        wouldNeed: { label: "Would need", value: mL(issue.neededML) + " of cells", note: "for " + mL(plan.sampleML) + " at 1 × 10⁸/mL." },
+        fix: { label: "Make " + mL(maxSample) + " instead", portion: F.plain(maxSample),
+          preview: "The most these cells make at 1 × 10⁸/mL." } };
+    }
+    return null;
   }
 
   /** Every guardrail the app shows for a sample: the result card's status and the range notes. */
@@ -420,7 +462,7 @@
     kit: kit, sampleRange: sampleRange, topUpVolume: topUpVolume,
     resuspension: resuspension, separation: separation, actions: actions, schedule: schedule, liveRun: liveRun,
     number: number, sampleOf: sampleOf, suggestMode: suggestMode,
-    describeResuspension: describeResuspension, separationWarnings: separationWarnings, splitNote: splitNote,
+    describeResuspension: describeResuspension, blockedResuspension: blockedResuspension, separationWarnings: separationWarnings, splitNote: splitNote,
     reagentRows: reagentRows, singleSteps: singleSteps, amountsText: amountsText
   };
   BM.easysep = api;

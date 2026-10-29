@@ -252,15 +252,31 @@
       $("#" + p + "-cells-have").textContent = s.density !== null && s.volume !== null ? "Cells: " + F.scientific(s.density * s.volume) : "";
 
       // Cells result
-      if (s.resuspension) {
+      var blocked = s.resuspension ? E.blockedResuspension(s.resuspension) : null;
+      $("#" + p + "-eyebrow").closest(".result").classList.toggle("blocked", !!blocked);
+      if (blocked) {
+        // A plan that can't be followed: say why, keep the volume it would take, offer the fix.
+        var b = blocked;
+        $("#" + p + "-eyebrow").textContent = b.eyebrow;
+        $("#" + p + "-hero").innerHTML = "";
+        // Only redraw when it changes: a tap on the fix button blurs the field being typed in,
+        // and redrawing on that change would swap the button out from under the tap.
+        var html = ui.blockedHTML(b, ' data-sort="' + i + '"' +
+          (b.fix.mode ? ' data-fix-mode="' + b.fix.mode + '"' : ' data-fix-portion="' + esc(b.fix.portion) + '"'));
+        var linesEl = $("#" + p + "-lines");
+        if (linesEl.drawn !== html) { linesEl.innerHTML = html; linesEl.drawn = html; }
+        ui.warnings($("#" + p + "-warn"), []);
+      } else if (s.resuspension) {
         var card = E.describeResuspension(s.resuspension, s.kit, m);
         $("#" + p + "-eyebrow").textContent = card.eyebrow;
         $("#" + p + "-hero").innerHTML = esc(card.value) + " <small>" + esc(card.unit) + "</small>";
         $("#" + p + "-lines").innerHTML = card.lines.map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+        $("#" + p + "-lines").drawn = null;
         ui.warnings($("#" + p + "-warn"), card.warnings);
       } else {
         $("#" + p + "-eyebrow").textContent = "Sample";
         $("#" + p + "-hero").textContent = "—";
+        $("#" + p + "-lines").drawn = null;
         $("#" + p + "-lines").innerHTML = '<p class="empty">Enter the density and volume above.' +
           (d.mode === "dilutePortion" && s.density !== null && s.volume !== null ? " Enter the sample to make." : "") + "</p>";
         ui.warnings($("#" + p + "-warn"), []);
@@ -507,6 +523,16 @@
   });
 
   // ---------------------------------------------------------------- start over
+  // The fix offered on a blocked Cells card: switch to spinning down, or make what the cells allow.
+  $("#samples").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-fix-mode], [data-fix-portion]");
+    if (!btn) return;
+    var p = "s" + btn.getAttribute("data-sort");
+    if (btn.hasAttribute("data-fix-mode")) $("#" + p + "-mode-" + btn.getAttribute("data-fix-mode")).checked = true;
+    else $("#" + p + "-portion").value = btn.getAttribute("data-fix-portion");
+    form.dispatchEvent(new Event("change"));
+  });
+
   $("#start-over").addEventListener("click", function () {
     var busy = run.start !== null || checked.some(function (c) { return Object.keys(c).some(function (k) { return c[k]; }); }) || ST.hasActive("easysep.");
     if (busy && !window.confirm("The ticked steps, counts and running timers of this run are cleared. Kits and magnet stay.")) return;

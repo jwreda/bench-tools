@@ -254,6 +254,20 @@
     ui.warnings($("#s-warnings"), r.seedingWarnings);
     copyText = r.copyText;
     $("#copy").disabled = !copyText;
+    // A stock too thin for the target: say so, and keep the volume it would take.
+    var fail = res && !res.ok && res.failure && res.failure.neededML != null ? res.failure : null;
+    $("#s-hero").closest(".result").classList.toggle("blocked", !!fail);
+    if (fail) {
+      $("#s-hero").innerHTML = "";
+      $("#s-body").innerHTML = ui.blockedHTML({
+        title: "The stock is too dilute for this target.",
+        wouldNeed: { label: "Would need", value: C.volumeML(fail.neededML) + " of stock",
+          note: "More than the " + (r.seeding.totalPlatingVolume != null ? C.volumeML(r.seeding.totalPlatingVolume) + " total" : "plating volume") +
+            ". Lower the target, or spin the cells down, resuspend in less medium and recount." }
+      });
+      ui.warnings($("#s-warnings"), r.seedingWarnings.filter(function (w) { return w.level !== "error"; }));
+      $("#copy").disabled = true;
+    }
   }
 
   $("#clear-squares").addEventListener("click", function () {

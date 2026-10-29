@@ -115,3 +115,15 @@ test("1 µL guardrail: exactly 1 µL and zero don't warn", () => {
   const z = D.solve(1, 0, null, 1e-3);
   assert.ok(!z.warnings.some(w => w.kind === "subMicroliterStock"));
 });
+
+test("an upward dilution is blocked with its cause, once, and keeps the number", () => {
+  const r = D.compute({ mode: "molar", solvingFor: "v1", text: { c1: "10", v1: "", c2: "50", v2: "10" },
+    units: { c1: "mM", v1: "uL", c2: "mM", v2: "mL" }, mw: "", seeds: {} });
+  assert.equal(r.status, "error");
+  assert.equal(r.warnings.filter(w => w.level === "error").length, 1);
+  assert.equal(r.blocked.eyebrow, "Can't make this");
+  assert.match(r.blocked.wouldNeed.value, /^Stock V₁ 50\.00 mL$/);
+  const ok = D.compute({ mode: "molar", solvingFor: "v1", text: { c1: "10", v1: "", c2: "50", v2: "10" },
+    units: { c1: "mM", v1: "uL", c2: "uM", v2: "mL" }, mw: "", seeds: {} });
+  assert.equal(ok.blocked, null);
+});

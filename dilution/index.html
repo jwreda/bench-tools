@@ -169,6 +169,15 @@
     $("#body").innerHTML = html;
     ui.warnings($("#warnings"), result.warnings);
     $("#copy").disabled = !result.recipe;
+    // Impossible inputs: explain instead of printing a recipe with a negative diluent.
+    $("#hero").closest(".result").classList.toggle("blocked", !!result.blocked);
+    if (result.blocked) {
+      $("#eyebrow").textContent = result.blocked.eyebrow;
+      $("#hero").innerHTML = "";
+      $("#body").innerHTML = ui.blockedHTML(result.blocked);
+      ui.warnings($("#warnings"), result.warnings.filter(function (w) { return w.level !== "error"; }));
+      $("#copy").disabled = true;
+    }
   }
 
   ["v1", "v2"].forEach(function (f) { ui.unitOptions($("#" + f + "-unit"), U.volume, f === "v1" ? "uL" : "mL"); });
