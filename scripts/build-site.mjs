@@ -99,3 +99,16 @@ fs.writeFileSync(path.join(OUT, "versions.html"), `<!doctype html>
 </html>
 `);
 console.log(`Built ${OUT}/ with ${tags.length} archived release(s): ${tags.join(", ") || "none yet"}`);
+
+// Stamp the local CSS and JS links in the latest copy with this commit, so a browser holding the
+// last deploy's files (Pages lets them be cached for 10 minutes) fetches the new ones at once.
+// Archived versions never change, so they keep plain links.
+const STAMP = sh("git rev-parse --short HEAD");
+const stampLinks = (html) => html.replace(/((?:src|href)=")((?![a-z]+:|\/\/)[^"?#]+\.(?:css|js))"/g, `$1$2?v=${STAMP}"`);
+(function stampDir(dir) {
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    if (fs.statSync(p).isDirectory()) { if (dir !== OUT || !/^v\d/.test(name)) stampDir(p); }
+    else if (name.endsWith(".html")) fs.writeFileSync(p, stampLinks(fs.readFileSync(p, "utf8")));
+  }
+})(OUT);

@@ -69,6 +69,10 @@ Step lists and the parallel run table show progress three ways: done rows are sh
 across the whole page) gets a stronger tint (`--step-now-bg`) and a 3px wisteria bar
 (`--step-now-edge`) plus `aria-current="step"`, and later steps sit in `--text-2`.
 
+Checkboxes are drawn in CSS, not left to the browser: an empty box is a plain 20px rounded square
+(`--check-edge`), and a ticked one fills with `--check-bg` (wisteria-600 light, wisteria-500 dark)
+with a white tick (6.2:1 and 4.4:1).
+
 The hemocytometer is the one skeuomorph: a faintly wisteria chamber (`--chamber-bg`, fine
 `--chamber-ghost` ruling) with four corner squares in solid `--chamber-square`, each with a
 triple-line `--chamber-rule` border and a lighter 4 × 4 `--chamber-sub` ruling. Inputs stay solid.
